@@ -169,4 +169,23 @@ class AutoSourcingTest extends TestCase
             $this->assertFalse($status['configured']); // no API tokens set in the test env
         }
     }
+
+    public function test_saving_connector_keys_via_integrations_ui_activates_the_connector(): void
+    {
+        $linkedin = fn () => collect(app(PlatformConnectorRegistry::class)->statuses())
+            ->firstWhere('key', 'linkedin_talent')['configured'];
+
+        $this->assertFalse($linkedin());
+
+        // Save the token + endpoint through the encrypted Integrations admin page.
+        $this->actingAs($this->owner)->post('/integrations', [
+            'provider' => 'linkedin_talent', 'value' => 'partner-oauth-token', 'status' => 'ACTIVE',
+        ])->assertRedirect();
+        $this->actingAs($this->owner)->post('/integrations', [
+            'provider' => 'linkedin_talent_endpoint', 'value' => 'https://api.linkedin.example/talent/search', 'status' => 'ACTIVE',
+        ])->assertRedirect();
+
+        // The connector now reports connected — no code change, purely UI-configured.
+        $this->assertTrue($linkedin());
+    }
 }

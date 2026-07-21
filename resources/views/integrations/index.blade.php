@@ -5,6 +5,7 @@
     @csrf
     <h2>Encrypted API Key Storage</h2>
     <p class="muted">Store production API credentials in encrypted form for compliant AI sourcing, parsing, and notifications.</p>
+    <p class="muted" style="font-size:13px">Auto-sourcing partner connectors (LinkedIn Talent, Indeed) activate once <strong>both</strong> their API token and endpoint are saved and set to ACTIVE.</p>
     <div class="grid grid-3">
         <div class="field"><label>Provider</label><select name="provider">
             @foreach($providers as $key => $label)

@@ -47,6 +47,11 @@ class IntegrationController extends Controller
             'agency_feed_url' => 'Agency Feed URL',
             'agency_feed_token' => 'Agency Feed Token',
             'ocr_space' => 'OCR Space API Key',
+            // Auto-sourcing official partner connectors (token + endpoint required to activate).
+            'linkedin_talent' => 'LinkedIn Talent API Token (official partner)',
+            'linkedin_talent_endpoint' => 'LinkedIn Talent API Endpoint',
+            'indeed_partner' => 'Indeed Partner API Key (official)',
+            'indeed_endpoint' => 'Indeed Partner API Endpoint',
             'smtp_password' => 'SMTP Password',
             'whatsapp_token' => 'WhatsApp Token',
         ];

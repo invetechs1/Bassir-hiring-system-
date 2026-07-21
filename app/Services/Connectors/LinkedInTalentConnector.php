@@ -27,7 +27,8 @@ class LinkedInTalentConnector extends AbstractPlatformConnector
 
     public function isConfigured(): bool
     {
-        return ! empty($this->credentials->get('linkedin_talent', 'LINKEDIN_TALENT_API_TOKEN'));
+        return ! empty($this->credentials->get('linkedin_talent', 'LINKEDIN_TALENT_API_TOKEN'))
+            && ! empty($this->credentials->get('linkedin_talent_endpoint', 'LINKEDIN_TALENT_API_ENDPOINT'));
     }
 
     public function search(array $filters): array

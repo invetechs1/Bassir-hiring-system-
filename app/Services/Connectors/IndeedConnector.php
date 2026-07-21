@@ -23,7 +23,8 @@ class IndeedConnector extends AbstractPlatformConnector
 
     public function isConfigured(): bool
     {
-        return ! empty($this->credentials->get('indeed_partner', 'INDEED_PARTNER_API_KEY'));
+        return ! empty($this->credentials->get('indeed_partner', 'INDEED_PARTNER_API_KEY'))
+            && ! empty($this->credentials->get('indeed_endpoint', 'INDEED_PARTNER_API_ENDPOINT'));
     }
 
     public function search(array $filters): array
