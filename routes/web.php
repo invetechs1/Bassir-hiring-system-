@@ -3,6 +3,7 @@
 use App\Http\Controllers\AiSearchController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AutoSourcingController;
 use App\Http\Controllers\CandidateApplicationController;
 use App\Http\Controllers\CandidateComparisonController;
 use App\Http\Controllers\CandidateController;
@@ -145,6 +146,19 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
         Route::post('/ai-search/import-linkedin-manual', [AiSearchController::class, 'importLinkedinManual'])
             ->middleware('throttle:30,1')
             ->name('ai-search.import-linkedin-manual');
+    });
+
+    // Automated web sourcing (scheduled, compliant candidate discovery + import).
+    Route::middleware('permission:ai_search.run')->group(function () {
+        Route::get('/auto-sourcing', [AutoSourcingController::class, 'index'])->name('auto-sourcing.index');
+    });
+    Route::middleware('permission:ai_search.import')->group(function () {
+        Route::post('/auto-sourcing', [AutoSourcingController::class, 'store'])
+            ->middleware('throttle:20,1')->name('auto-sourcing.store');
+        Route::post('/auto-sourcing/{sourcingSearch}/run', [AutoSourcingController::class, 'run'])
+            ->middleware('throttle:8,1')->name('auto-sourcing.run');
+        Route::delete('/auto-sourcing/{sourcingSearch}', [AutoSourcingController::class, 'destroy'])
+            ->middleware('throttle:20,1')->name('auto-sourcing.destroy');
     });
 
     Route::middleware('permission:candidate.write')->group(function () {

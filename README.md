@@ -163,6 +163,40 @@ Save keys in `/integrations` (encrypted at rest) or `.env`:
 - `agency_feed_token`
 - `ocr_space`
 
+## Automated Web Sourcing (Scheduled)
+
+`/auto-sourcing` runs saved search profiles automatically to discover and import
+candidates from across the web — compliantly, with no scraping and no automatic
+outreach.
+
+How it works:
+
+- Save reusable search profiles (role, specialization, skills, location, quantity, frequency).
+- On schedule, each profile queries the official **Google Custom Search / Bing / SerpAPI**
+  APIs and any configured **agency feed**, plus configured **official partner connectors**.
+- Genuinely public CV files (PDF/DOC/DOCX) can be auto-downloaded, virus-scan-hooked,
+  parsed, and turned into candidate records; other hits import from search metadata.
+- Every imported candidate is created as a **lead with `consent = PENDING`** (no contact
+  allowed until HR captures consent), with full source tracking and audit logging.
+- **LinkedIn public-web results are flagged for manual review only** — never scraped.
+  LinkedIn data enters automatically *only* through the official LinkedIn Talent partner
+  API connector (`LINKEDIN_TALENT_API_TOKEN`).
+- Official platform connectors (`app/Services/Connectors`) for LinkedIn Talent and Indeed
+  activate automatically once their API token is configured; otherwise they stay dormant.
+
+Enable the scheduler with a single server cron entry:
+
+```bash
+* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
+```
+
+Run manually or for one profile:
+
+```bash
+php artisan bassir:auto-source                 # all active saved searches
+php artisan bassir:auto-source --search=12      # a single saved search
+```
+
 ## AI Selection Acceleration Pages
 
 - `/jobs/{job}/ranking`: Smart Candidate Ranking for a job.

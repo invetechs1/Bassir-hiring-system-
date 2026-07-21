@@ -33,6 +33,7 @@
             @endif
             @if(auth()->user()->hasPermission('ai_search.run'))
             <a href="{{ route('ai-search.index') }}">AI Search</a>
+            <a href="{{ route('auto-sourcing.index') }}">Auto Sourcing</a>
             @endif
             @if(auth()->user()->hasPermission('candidate.read'))
             <a href="{{ route('candidates.index') }}">Candidates</a>

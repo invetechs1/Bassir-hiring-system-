@@ -5,11 +5,16 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
 
 Artisan::command('bassir:health', function () {
     $this->info('Bassir Laravel shared-hosting package is installed.');
 });
+
+// Automated compliant candidate sourcing. Enable on the server with a single cron entry:
+//   * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
+Schedule::command('bassir:auto-source')->dailyAt('02:00')->withoutOverlapping();
 
 Artisan::command('bassir:create-owner {--username= : Owner username} {--email= : Owner email} {--name= : Owner full name} {--company= : Company name} {--password= : Owner password; omit to enter securely}', function () {
     $username = (string) ($this->option('username') ?: $this->ask('Owner username'));
