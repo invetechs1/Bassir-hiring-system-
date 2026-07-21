@@ -1,5 +1,42 @@
 # QA Results
 
+## 2026-07-21 Go-Live Rebuild Verification
+
+The system was rebuilt into a clean Git repository (vendor and runtime state
+excluded, `composer.lock` retained) and re-verified end-to-end on a native
+PHP 8.4 / Composer runtime.
+
+Runtime QA executed:
+
+```bash
+composer install --optimize-autoloader        # 82 packages, prod + dev
+php artisan migrate:fresh --seed --force       # 9 migrations + demo seed, PASS
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+php scripts/preflight.php                       # 26 passed / 0 failed on .env.example
+php vendor/bin/phpunit                           # 40 passed, 90 assertions
+```
+
+Results:
+
+- Laravel Framework 12.61.1 boots; `/`, `/login`, `/privacy` return 200,
+  `/dashboard` redirects guests to login, `/health` returns
+  `{app:ok, database:ok, storage:ok}`.
+- Route cache builds cleanly (no route-action closures).
+- Preflight passes 26/26 against the production `.env.example`.
+- Automated test suite expanded from 9 to 40 tests (90 assertions):
+  - `AuthenticatedSmokeTest`: 21 authenticated pages load without error,
+    record-scoped candidate/job pages, all five CSV report exports, and the
+    candidate/job/specialization create workflows.
+  - `MobileApiTest`: bearer-token login, protected endpoints, and rejection of
+    invalid credentials and inactive users.
+  - Existing public-page, scoring, quality, file-security, and tenant tests.
+- PHP lint (`php -l`) clean across `app`, `config`, `database`, `routes`, `tests`.
+
+Verdict: core recruitment platform is functionally complete and launch-ready.
+Remaining roadmap items (candidate self-service, edit/delete screens,
+subscription billing, queue offloading for high-volume AI/CV workloads) are
+post-launch enhancements, not go-live blockers.
+
 ## Local Static QA Run
 
 Date: 2026-06-06
