@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bassir AI Recruitment System - Demo Preview</title>
+  <style>
+    :root{--ink:#14213d;--teal:#0f766e;--mint:#ccfbf1;--soft:#f7f8fb;--line:#e2e8f0;--orange:#f97316}
+    *{box-sizing:border-box} body{margin:0;background:var(--soft);font-family:Inter,Arial,sans-serif;color:#172033}
+    a{text-decoration:none;color:inherit}.layout{display:flex;min-height:100vh}.side{width:280px;background:#fff;border-right:1px solid var(--line);padding:22px;position:fixed;inset:0 auto 0 0}
+    .brand{font-weight:800;color:var(--ink);font-size:18px}.tag{font-size:13px;color:#64748b;margin-top:4px}.nav{margin-top:28px;display:grid;gap:6px}.nav a{padding:11px 12px;border-radius:7px;font-weight:650;color:#334155}.nav a.active,.nav a:hover{background:var(--mint);color:#115e59}
+    .main{margin-left:280px;width:calc(100% - 280px)}.top{background:#fff;border-bottom:1px solid var(--line);padding:18px 30px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2}
+    .content{padding:28px}.card{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 18px 50px rgba(20,33,61,.08);padding:20px}.grid{display:grid;gap:16px}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .kpi{font-size:30px;font-weight:800;color:var(--ink);margin-top:10px}.muted{color:#64748b;font-size:14px}.btn{display:inline-block;border:0;border-radius:7px;background:var(--teal);color:#fff;font-weight:750;padding:10px 14px;cursor:pointer}.btn-dark{background:var(--ink)}.btn-ai{background:var(--orange)}
+    input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:7px;padding:10px;font:inherit;background:#fff}label{font-weight:700;font-size:14px}.field{display:grid;gap:7px}table{width:100%;border-collapse:collapse;background:#fff}th,td{text-align:left;border-bottom:1px solid var(--line);padding:13px}th{font-size:12px;color:#64748b;text-transform:uppercase;background:#f1f5f9}.badge{display:inline-block;border-radius:999px;background:var(--mint);color:#115e59;padding:5px 9px;font-size:12px;font-weight:800}.risk{background:#fee2e2;color:#991b1b}.good{background:#dcfce7;color:#166534}
+    .hero{background:linear-gradient(135deg,#fff,#ecfeff);border-bottom:1px solid var(--line);padding:26px 30px}.hero h1{margin:0;color:var(--ink);font-size:28px}.section{margin-top:20px}
+    @media(max-width:900px){.side{position:relative;width:100%;height:auto}.layout{display:block}.main{margin-left:0;width:100%}.grid-4,.grid-3,.grid-2{grid-template-columns:1fr}.top{position:relative}.content{padding:16px}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="brand">Bassir AI Recruitment</div>
+    <div class="tag">Powered by Bassir Technology</div>
+    <nav class="nav">
+      <a class="active" href="#dashboard">Dashboard</a>
+      <a href="#ai">AI Search</a>
+      <a href="#candidates">Candidates</a>
+      <a href="#jobs">Jobs</a>
+      <a href="#matching">AI Matching</a>
+      <a href="#specializations">Specializations</a>
+      <a href="#interviews">Interviews</a>
+      <a href="#salary">Salary</a>
+      <a href="#reports">Reports</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div>
+        <strong>Enterprise Recruitment Dashboard</strong>
+        <div class="muted">Compliant AI sourcing, CV parsing, matching, and hiring operations</div>
+      </div>
+      <button class="btn btn-dark">EN / AR</button>
+    </header>
+
+    <section class="hero">
+      <h1>Bassir AI Recruitment System</h1>
+      <p class="muted">Shared-hosting Laravel preview for HR teams, hiring managers, and recruitment agencies.</p>
+    </section>
+
+    <section id="dashboard" class="content">
+      <div class="grid grid-4">
+        <div class="card"><div class="muted">Total Candidates</div><div class="kpi">1,248</div><span class="badge good">+18% this month</span></div>
+        <div class="card"><div class="muted">Shortlisted</div><div class="kpi">186</div><span class="badge">AI ranked</span></div>
+        <div class="card"><div class="muted">Interviews</div><div class="kpi">42</div><span class="badge">Scheduled</span></div>
+        <div class="card"><div class="muted">Open Jobs</div><div class="kpi">23</div><span class="badge">Approved</span></div>
+      </div>
+
+      <div class="grid grid-3 section">
+        <section class="card" style="grid-column:span 2">
+          <h2>Hiring Pipeline</h2>
+          <div class="grid grid-4">
+            <div><span class="badge">New</span><div class="kpi">312</div></div>
+            <div><span class="badge">Reviewed</span><div class="kpi">214</div></div>
+            <div><span class="badge">Interview</span><div class="kpi">42</div></div>
+            <div><span class="badge good">Offer</span><div class="kpi">12</div></div>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Talent Mix</h2>
+          <p><strong>BIM Engineers</strong> <span class="muted">34%</span></p>
+          <p><strong>Planning Engineers</strong> <span class="muted">26%</span></p>
+          <p><strong>Software Developers</strong> <span class="muted">22%</span></p>
+          <p><strong>Project Managers</strong> <span class="muted">18%</span></p>
+        </section>
+      </div>
+
+      <section id="ai" class="card section">
+        <h2>AI CV Sourcing Engine</h2>
+        <p class="muted">Find permitted public CV files, agency-feed candidates, and manual-review profile links. LinkedIn remains official/manual only.</p>
+        <div class="grid grid-3">
+          <div class="field"><label>Job Title</label><input value="Senior BIM Engineer"></div>
+          <div class="field"><label>Specialization</label><select><option>BIM Engineers</option><option>Planning Engineers</option><option>Software Developers</option></select></div>
+          <div class="field"><label>Location</label><input value="Riyadh, Saudi Arabia"></div>
+          <div class="field"><label>Skills</label><input value="Revit; Navisworks; BIM 360"></div>
+          <div class="field"><label>Sources</label><input value="Google API; Bing API; Agency Feed"></div>
+          <div class="field"><label>Quantity</label><input value="25"></div>
+        </div>
+        <button class="btn btn-ai" style="margin-top:18px">Run AI CV Sourcing</button>
+      </section>
+
+      <section id="candidates" class="card section" style="padding:0;overflow:auto">
+        <table>
+          <thead><tr><th>Candidate</th><th>Specialization</th><th>City</th><th>Source</th><th>Status</th><th>AI Score</th><th>Recommendation</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Aisha Al-Fahad</strong><br><span class="muted">Senior BIM Engineer</span></td><td>BIM Engineers</td><td>Riyadh</td><td>Uploaded CV</td><td><span class="badge">Shortlisted</span></td><td>92</td><td><span class="badge good">Excellent Match</span></td></tr>
+            <tr><td><strong>Omar Haddad</strong><br><span class="muted">Planning Engineer</span></td><td>Planning Engineers</td><td>Jeddah</td><td>Google API</td><td><span class="badge">Reviewed</span></td><td>84</td><td><span class="badge good">Good Match</span></td></tr>
+            <tr><td><strong>Maya Chen</strong><br><span class="muted">Full-Stack Developer</span></td><td>Software Developers</td><td>Khobar</td><td>Internal DB</td><td><span class="badge">Interview</span></td><td>88</td><td><span class="badge good">Good Match</span></td></tr>
+            <tr><td><strong>Fahad Al-Qahtani</strong><br><span class="muted">HSE Engineer</span></td><td>HSE Engineers</td><td>Dammam</td><td>Agency Feed</td><td><span class="badge">New</span></td><td>76</td><td><span class="badge">Average Match</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div id="jobs" class="grid grid-2 section">
+        <section class="card">
+          <h2>Senior BIM Engineer</h2>
+          <p class="muted">Engineering · Riyadh Mixed Use Development</p>
+          <p>Lead BIM coordination, clash detection, and model quality control.</p>
+          <span class="badge">2 vacancies</span>
+          <button class="btn" style="margin-top:18px;display:block">Run AI Matching</button>
+        </section>
+        <section class="card">
+          <h2>Planning Engineer</h2>
+          <p class="muted">Projects · Jeddah Infrastructure Program</p>
+          <p>Own project schedules, delay analysis, and reporting dashboards.</p>
+          <span class="badge">1 vacancy</span>
+          <button class="btn" style="margin-top:18px;display:block">Run AI Matching</button>
+        </section>
+      </div>
+
+      <section id="matching" class="card section" style="padding:0;overflow:auto">
+        <table>
+          <thead><tr><th>Candidate</th><th>Overall</th><th>Missing Skills</th><th>AI Questions</th><th>Negotiation Strategy</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Aisha Al-Fahad</strong></td><td>92</td><td>BIM 360 Docs governance</td><td>How did you manage clash escalation in your last mega-project?</td><td>Offer at market midpoint with probation KPI review.</td></tr>
+            <tr><td><strong>Maya Chen</strong></td><td>88</td><td>ERP integration patterns</td><td>Describe your approach to scaling React apps with strict delivery deadlines.</td><td>Use phased increment tied to delivery milestones.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="specializations" class="card section" style="padding:0;overflow:auto">
+        <table>
+          <thead><tr><th>Specialization</th><th>Category</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>BIM Engineers</strong></td><td>Engineering</td><td><span class="badge good">Active</span></td></tr>
+            <tr><td><strong>MEP Engineers</strong></td><td>Engineering</td><td><span class="badge good">Active</span></td></tr>
+            <tr><td><strong>Infrastructure Engineers</strong></td><td>Engineering</td><td><span class="badge good">Active</span></td></tr>
+            <tr><td><strong>Geotechnical Engineers</strong></td><td>Engineering</td><td><span class="badge good">Active</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div id="interviews" class="grid grid-2 section">
+        <section class="card">
+          <h2>Interview Calendar</h2>
+          <p><strong>Aisha Al-Fahad</strong> · Technical Interview · 10:30</p>
+          <p><strong>Maya Chen</strong> · HR Interview · 14:00</p>
+          <span class="badge">Feedback required</span>
+        </section>
+        <section class="card">
+          <h2>Feedback Form</h2>
+          <div class="grid grid-2">
+            <div class="field"><label>Technical</label><input value="92"></div>
+            <div class="field"><label>HR</label><input value="88"></div>
+          </div>
+          <textarea style="margin-top:12px">Strong technical fit, confirm joining date.</textarea>
+          <button class="btn" style="margin-top:12px">Save Feedback</button>
+        </section>
+      </div>
+
+      <div id="salary" class="grid grid-2 section">
+        <section class="card">
+          <h2>Salary Benchmark</h2>
+          <p><strong>Senior BIM Engineer</strong></p>
+          <p class="muted">Riyadh · 7-10 years · 18,000 - 24,000 SAR</p>
+          <span class="badge good">Within market</span>
+        </section>
+        <section class="card">
+          <h2>Salary Estimator</h2>
+          <p><strong>Expected:</strong> 21,400 SAR</p>
+          <p><strong>Fair Range:</strong> 18,190 - 25,252 SAR</p>
+          <p class="muted">Offer near midpoint with performance review clause.</p>
+        </section>
+      </div>
+
+      <div id="reports" class="grid grid-3 section">
+        <section class="card"><h2>Pipeline Report</h2><p class="muted">CSV export ready</p><button class="btn btn-dark">Export</button></section>
+        <section class="card"><h2>Salary Benchmark</h2><p class="muted">Market comparison and negotiation guidance</p><button class="btn btn-dark">Export</button></section>
+        <section class="card"><h2>AI Search Success</h2><p class="muted">Search history and source performance</p><button class="btn btn-dark">Export</button></section>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

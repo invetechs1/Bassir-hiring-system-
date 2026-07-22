@@ -1,0 +1,41 @@
+# Dependencies (reinstall with: composer install --no-dev --optimize-autoloader)
+/vendor
+/node_modules
+
+# Environment / secrets
+.env
+.env.backup
+.env.production
+auth.json
+
+# Laravel runtime
+/storage/*.key
+/storage/app/private/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing
+/storage/logs/*
+/bootstrap/cache/*.php
+
+# Build / cache artifacts
+/public/hot
+/public/storage
+.phpunit.result.cache
+.phpunit.cache
+
+# Local databases
+*.sqlite
+*.sqlite-journal
+
+# Editor / OS junk
+.DS_Store
+._*
+Thumbs.db
+.idea
+.vscode
+*.swp
+
+# Duplicate copies produced by some archive tools
+"* 2"
+"* 2.*"
