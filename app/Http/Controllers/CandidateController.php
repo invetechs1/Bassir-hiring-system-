@@ -110,6 +110,47 @@ class CandidateController extends Controller
         return view('candidates.show', compact('candidate'));
     }
 
+    public function edit(Candidate $candidate): View
+    {
+        $this->authorizeTenant($candidate);
+        $candidate->load('skills', 'languages');
+
+        return view('candidates.edit', [
+            'candidate' => $candidate,
+            'specializations' => Specialization::where('is_active', true)->orderBy('category')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(Request $request, Candidate $candidate, DuplicateDetectionService $duplicates, AuditService $audit, CandidateQualityService $quality): RedirectResponse
+    {
+        $this->authorizeTenant($candidate);
+        $data = $this->validated($request, $candidate->company_id, $candidate->id);
+
+        // Capture consent metadata when a candidate is newly marked as consented.
+        if ($data['consent_status'] === 'CONSENTED' && $candidate->consent_status !== 'CONSENTED') {
+            $data['consent_captured_at'] = now()->toDateString();
+            $data['consent_captured_by'] = Auth::id();
+            $data['contact_allowed'] = true;
+        }
+        $data['duplicate_hash'] = $duplicates->hash($data);
+
+        DB::transaction(function () use ($candidate, $data, $request) {
+            $candidate->update($data);
+            $candidate->skills()->delete();
+            $candidate->languages()->delete();
+            $this->syncList($candidate, 'skills', $request->input('skills', ''));
+            $this->syncList($candidate, 'languages', $request->input('languages', ''));
+        });
+
+        $fresh = $candidate->fresh(['skills', 'languages', 'education', 'certifications', 'experience', 'documents', 'interviews.feedback', 'scores']);
+        if ($fresh) {
+            $quality->update($fresh);
+        }
+        $audit->log(Auth::id(), 'CANDIDATE_UPDATE', 'candidates', (string) $candidate->id, [], $request);
+
+        return redirect()->route('candidates.show', $candidate)->with('status', 'Candidate updated');
+    }
+
     public function action(Request $request, Candidate $candidate, AuditService $audit): RedirectResponse
     {
         $this->authorizeTenant($candidate);
@@ -147,13 +188,13 @@ class CandidateController extends Controller
         return back()->with('status', 'Candidate updated');
     }
 
-    private function validated(Request $request, ?int $companyId): array
+    private function validated(Request $request, ?int $companyId, ?int $ignoreId = null): array
     {
         return $request->validate([
             'full_name' => ['required', 'string', 'max:160'],
-            'email' => ['nullable', 'email', $this->tenantUniqueRule('email', $companyId)],
+            'email' => ['nullable', 'email', $this->tenantUniqueRule('email', $companyId, $ignoreId)],
             'phone' => ['nullable', 'string', 'max:40'],
-            'linkedin_url' => ['nullable', 'url', $this->tenantUniqueRule('linkedin_url', $companyId)],
+            'linkedin_url' => ['nullable', 'url', $this->tenantUniqueRule('linkedin_url', $companyId, $ignoreId)],
             'title' => ['required', 'string', 'max:120'],
             'current_company' => ['nullable', 'string', 'max:160'],
             'specialization' => ['required', 'string', 'max:120'],
@@ -172,11 +213,13 @@ class CandidateController extends Controller
         ]);
     }
 
-    private function tenantUniqueRule(string $column, ?int $companyId)
+    private function tenantUniqueRule(string $column, ?int $companyId, ?int $ignoreId = null)
     {
-        return Rule::unique('candidates', $column)->where(function ($query) use ($companyId) {
+        $rule = Rule::unique('candidates', $column)->where(function ($query) use ($companyId) {
             return is_null($companyId) ? $query->whereNull('company_id') : $query->where('company_id', $companyId);
         });
+
+        return $ignoreId ? $rule->ignore($ignoreId) : $rule;
     }
 
     private function syncList(Candidate $candidate, string $relation, string $value): void

@@ -6,6 +6,9 @@
     <p class="muted">{{ $job->company }} · {{ $job->specialization }} · {{ $job->project }} · {{ $job->location }}</p>
     <p>{{ $job->description }}</p>
     @foreach($job->requiredSkills as $skill)<span class="badge">{{ $skill->name }}</span> @endforeach
+    @if(auth()->user()->hasPermission('job.write'))
+    <div style="margin-top:14px"><a class="btn btn-light" href="{{ route('jobs.edit', $job) }}">Edit job</a></div>
+    @endif
     @if(auth()->user()->hasPermission('job.match'))
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
         <form method="post" action="{{ route('jobs.match', $job) }}">@csrf<button class="btn">Run AI Matching</button></form>

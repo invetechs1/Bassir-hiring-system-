@@ -1,5 +1,19 @@
 # Changelog Fixes
 
+## 2026-07-21 Edit Screens
+
+- Added candidate edit/update (`/candidates/{id}/edit`) and job edit/update
+  (`/jobs/{id}/edit`), closing the previously documented gap where records could
+  be created and viewed but not modified.
+- Edit is permission-gated (`candidate.write` / `job.write`), tenant-scoped,
+  audit-logged, and preserves consent metadata; candidate skills/languages and
+  job required-skills are replaced cleanly on save, and jobs are re-ranked.
+- Tenant-unique email/LinkedIn validation now ignores the record being edited.
+- Added "Edit" actions on the candidate and job profile pages.
+- Tests cover edit page load, update persistence, self-unique validation, and
+  the read-only-role guard.
+
+
 ## 2026-06-04 Production Repair Pass
 
 - Upgraded project dependency target from Laravel 11 to Laravel 12 in `composer.json`.
