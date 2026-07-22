@@ -63,6 +63,94 @@ This package is redesigned for cPanel/Plesk/DirectAdmin shared hosting using:
 - MySQL migrations and seed data.
 - PHPUnit smoke/unit test scaffold covering public pages, commercial routes, scoring, tenant basics, and file security.
 
+## Run Locally (Development)
+
+Prerequisites: PHP 8.2+, Composer, and MySQL/MariaDB (XAMPP/WAMP/Laragon all work).
+
+1. Install PHP dependencies:
+
+```bash
+composer install
+```
+
+If Composer reports the lock file needs PHP 8.3/8.4 packages (`zipstream-php`, `symfony/clock`, etc. requiring a newer PHP than you have), the lock file was generated on a newer PHP. Regenerate it against your installed PHP version:
+
+```bash
+composer update --with-all-dependencies
+```
+
+2. Ensure the runtime storage folders exist (they're gitignored and may not exist on a fresh clone):
+
+```bash
+mkdir -p storage/app/private/cvs storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+```
+
+3. Create your `.env` file and generate the app key:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+4. Edit `.env` for local development:
+
+```env
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+APP_FORCE_HTTPS=false
+SESSION_SECURE_COOKIE=false
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=bassir
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+`APP_FORCE_HTTPS` and `SESSION_SECURE_COOKIE` must be `false` locally — they force HTTPS redirects and secure-only cookies, which break plain `http://localhost` access.
+
+5. Create the database (empty schema — migrations create the tables):
+
+```bash
+mysql -u root -e "CREATE DATABASE bassir CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+6. Run migrations and seed demo data:
+
+```bash
+php artisan migrate
+php artisan db:seed
+```
+
+The seeder creates a demo Super Admin login:
+
+- Username: `yahya`
+- Password: `Bassir@2030`
+
+(You'll be forced to change the password on first login — that's expected, `must_change_password` is seeded as true.)
+
+7. Start the dev server:
+
+```bash
+php artisan serve
+```
+
+8. Open the app at `http://localhost:8000` and log in with the credentials above.
+
+Optional — run the automated web-sourcing scheduler locally (only needed if you're testing `/auto-sourcing`):
+
+```bash
+php artisan schedule:work
+```
+
+Optional — run the test suite:
+
+```bash
+php artisan test
+```
+
 ## Shared Hosting Install
 
 1. Upload this folder outside `public_html`, for example:

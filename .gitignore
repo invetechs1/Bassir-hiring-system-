@@ -11,11 +11,16 @@ auth.json
 # Laravel runtime
 /storage/*.key
 /storage/app/private/*
+!/storage/app/private/.gitkeep
 /storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitkeep
 /storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
 /storage/framework/views/*
+!/storage/framework/views/.gitkeep
 /storage/framework/testing
 /storage/logs/*
+!/storage/logs/.gitkeep
 /bootstrap/cache/*.php
 
 # Build / cache artifacts
