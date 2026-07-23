@@ -21,7 +21,9 @@ class CandidateController extends Controller
 {
     public function index(Request $request, TenantService $tenant): View
     {
+        $archived = $request->boolean('archived');
         $candidates = $tenant->scope(Candidate::query(), Auth::user())
+            ->when($archived, fn ($query) => $query->onlyTrashed())
             ->with(['skills', 'languages', 'scores'])
             ->when($request->q, fn ($query) => $query->where(function ($inner) use ($request) {
                 $inner->where('full_name', 'like', "%{$request->q}%")
@@ -31,9 +33,10 @@ class CandidateController extends Controller
             }))
             ->when($request->status, fn ($query) => $query->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('candidates.index', compact('candidates'));
+        return view('candidates.index', compact('candidates', 'archived'));
     }
 
     public function create(): View
@@ -149,6 +152,25 @@ class CandidateController extends Controller
         $audit->log(Auth::id(), 'CANDIDATE_UPDATE', 'candidates', (string) $candidate->id, [], $request);
 
         return redirect()->route('candidates.show', $candidate)->with('status', 'Candidate updated');
+    }
+
+    public function destroy(Candidate $candidate, AuditService $audit, Request $request): RedirectResponse
+    {
+        $this->authorizeTenant($candidate);
+        $candidate->delete(); // soft delete (archive) — recoverable
+        $audit->log(Auth::id(), 'CANDIDATE_ARCHIVE', 'candidates', (string) $candidate->id, [], $request);
+
+        return redirect()->route('candidates.index')->with('status', 'Candidate archived. You can restore it from the archived view.');
+    }
+
+    public function restore(int $candidate, AuditService $audit, Request $request): RedirectResponse
+    {
+        $model = Candidate::withTrashed()->findOrFail($candidate);
+        $this->authorizeTenant($model);
+        $model->restore();
+        $audit->log(Auth::id(), 'CANDIDATE_RESTORE', 'candidates', (string) $model->id, [], $request);
+
+        return redirect()->route('candidates.show', $model)->with('status', 'Candidate restored.');
     }
 
     public function action(Request $request, Candidate $candidate, AuditService $audit): RedirectResponse

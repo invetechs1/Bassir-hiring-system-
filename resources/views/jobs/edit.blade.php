@@ -46,4 +46,11 @@
         <a class="btn btn-light" href="{{ route('jobs.show', $job) }}">Cancel</a>
     </div>
 </form>
+@if(auth()->user()->hasPermission('job.write'))
+<form method="post" action="{{ route('jobs.destroy', $job) }}" onsubmit="return confirm('Archive this job? It can be restored later from the Archived view.')" style="margin-top:12px">
+    @csrf
+    @method('DELETE')
+    <button class="btn btn-light" style="color:#b91c1c;border-color:#fecaca">Archive job</button>
+</form>
+@endif
 @endsection

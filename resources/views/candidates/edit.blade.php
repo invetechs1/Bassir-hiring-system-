@@ -49,4 +49,11 @@
         <a class="btn btn-light" href="{{ route('candidates.show', $candidate) }}">Cancel</a>
     </div>
 </form>
+@if(auth()->user()->hasPermission('candidate.write'))
+<form method="post" action="{{ route('candidates.destroy', $candidate) }}" onsubmit="return confirm('Archive this candidate? It can be restored later from the Archived view.')" style="margin-top:12px">
+    @csrf
+    @method('DELETE')
+    <button class="btn btn-light" style="color:#b91c1c;border-color:#fecaca">Archive candidate</button>
+</form>
+@endif
 @endsection

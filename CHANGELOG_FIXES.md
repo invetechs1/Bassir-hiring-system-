@@ -1,5 +1,19 @@
 # Changelog Fixes
 
+## 2026-07-21 Archive & Restore
+
+- Added recoverable soft-delete archiving for candidates and jobs (never a hard
+  delete of PII): archive from the edit screen, view archived records via an
+  Active/Archived toggle on each list, and restore with one click.
+- Archive/restore are permission-gated (`candidate.write` / `job.write`),
+  tenant-scoped, and audit-logged (`*_ARCHIVE` / `*_RESTORE`).
+- Archived records are automatically excluded from all default queries, lists,
+  matching, and reports via Eloquent SoftDeletes.
+- Lists now show session flash messages and empty-state text; pagination
+  preserves search/filter/archived query strings.
+- Tests cover archive, hidden-from-default-queries, restore, and the
+  read-only-role guard.
+
 ## 2026-07-21 Edit Screens
 
 - Added candidate edit/update (`/candidates/{id}/edit`) and job edit/update

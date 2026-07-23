@@ -44,7 +44,10 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
 
     Route::resource('candidates', CandidateController::class)->only(['index'])->middleware('permission:candidate.read');
     Route::middleware('permission:candidate.write')->group(function () {
-        Route::resource('candidates', CandidateController::class)->only(['create', 'store', 'edit', 'update']);
+        Route::resource('candidates', CandidateController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+        Route::post('/candidates/{candidate}/restore', [CandidateController::class, 'restore'])
+            ->middleware('throttle:20,1')
+            ->name('candidates.restore');
         Route::post('/candidates/{candidate}/action', [CandidateController::class, 'action'])
             ->middleware('throttle:30,1')
             ->name('candidates.action');
@@ -81,7 +84,10 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
 
     Route::resource('jobs', JobController::class)->only(['index'])->middleware('permission:job.read');
     Route::middleware('permission:job.write')->group(function () {
-        Route::resource('jobs', JobController::class)->only(['create', 'store', 'edit', 'update']);
+        Route::resource('jobs', JobController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+        Route::post('/jobs/{job}/restore', [JobController::class, 'restore'])
+            ->middleware('throttle:20,1')
+            ->name('jobs.restore');
         Route::post('/jobs/{job}/match', [JobController::class, 'match'])
             ->middleware('permission:job.match')
             ->middleware('throttle:20,1')

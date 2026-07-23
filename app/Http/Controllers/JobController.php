@@ -22,9 +22,16 @@ use Illuminate\View\View;
 
 class JobController extends Controller
 {
-    public function index(TenantService $tenant): View
+    public function index(Request $request, TenantService $tenant): View
     {
-        return view('jobs.index', ['jobs' => $tenant->scope(Job::with('requiredSkills'), Auth::user())->latest()->paginate(20)]);
+        $archived = $request->boolean('archived');
+        $jobs = $tenant->scope(Job::with('requiredSkills'), Auth::user())
+            ->when($archived, fn ($query) => $query->onlyTrashed())
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('jobs.index', compact('jobs', 'archived'));
     }
 
     public function create(): View
@@ -125,6 +132,25 @@ class JobController extends Controller
         $audit->log(Auth::id(), 'JOB_UPDATE', 'jobs', (string) $job->id, [], $request);
 
         return redirect()->route('jobs.show', $job)->with('status', 'Job updated');
+    }
+
+    public function destroy(Job $job, AuditService $audit, Request $request): RedirectResponse
+    {
+        $this->authorizeTenant($job);
+        $job->delete(); // soft delete (archive) — recoverable
+        $audit->log(Auth::id(), 'JOB_ARCHIVE', 'jobs', (string) $job->id, [], $request);
+
+        return redirect()->route('jobs.index')->with('status', 'Job archived. You can restore it from the archived view.');
+    }
+
+    public function restore(int $job, AuditService $audit, Request $request): RedirectResponse
+    {
+        $model = Job::withTrashed()->findOrFail($job);
+        $this->authorizeTenant($model);
+        $model->restore();
+        $audit->log(Auth::id(), 'JOB_RESTORE', 'jobs', (string) $model->id, [], $request);
+
+        return redirect()->route('jobs.show', $model)->with('status', 'Job restored.');
     }
 
     public function match(
