@@ -163,6 +163,29 @@ Save keys in `/integrations` (encrypted at rest) or `.env`:
 - `agency_feed_token`
 - `ocr_space`
 
+## Background Queue (Optional, for Scale)
+
+Heavy work — AI candidate ranking on job create/update and scheduled
+auto-sourcing runs — is dispatched through Laravel's queue. By default
+`QUEUE_CONNECTION=sync` runs it inline, so the app works with no worker on shared
+hosting. For higher volume, process it in the background:
+
+```env
+QUEUE_CONNECTION=database
+DB_QUEUE_TABLE=queue_jobs   # named to avoid clashing with the recruitment jobs table
+```
+
+```bash
+php artisan migrate --force        # creates queue_jobs, job_batches, failed_jobs
+php artisan queue:work --tries=3   # long-running worker (or via Supervisor)
+```
+
+On shared hosting without a long-running process, drain the queue on a cron:
+
+```bash
+* * * * * php /path/to/artisan queue:work --stop-when-empty >> /dev/null 2>&1
+```
+
 ## Automated Web Sourcing (Scheduled)
 
 `/auto-sourcing` runs saved search profiles automatically to discover and import

@@ -1,5 +1,22 @@
 # Changelog Fixes
 
+## 2026-07-21 Background Queue for Heavy Work
+
+- Moved AI candidate ranking (on job create/update) and scheduled auto-sourcing
+  runs onto Laravel's queue via `RankJobCandidates` and `RunSourcingSearch` jobs,
+  so large runs never block a web request or hit PHP's max execution time.
+- Stays `sync` (inline) by default for shared hosting; set
+  `QUEUE_CONNECTION=database` + run a worker for background processing at scale.
+- Added `config/queue.php` and a queue-tables migration using `queue_jobs`
+  (renamed to avoid colliding with the recruitment `jobs` requisitions table),
+  plus `.env.example` and README worker/cron guidance.
+- Fixed a latent bug: `SourcingRun` counter columns were null in memory before a
+  refresh, which crashed a zero-result sourcing run when writing
+  `last_import_count`; the model now defaults all counters to 0.
+- Tests: ranking dispatched on job create/update, ranking handler produces
+  scores, one queued job per active search, and the sourcing handler records a
+  run (suite 58 -> 63).
+
 ## 2026-07-21 Form Request Validation
 
 - Extracted candidate and job write-validation into dedicated Form Request

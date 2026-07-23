@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJobRequest;
 use App\Http\Requests\UpdateJobRequest;
+use App\Jobs\RankJobCandidates;
 use App\Models\Candidate;
 use App\Models\CandidateScore;
 use App\Models\Job;
 use App\Models\Specialization;
-use App\Services\AiCandidateRankingService;
 use App\Services\AiInsightsService;
 use App\Services\AuditService;
 use App\Services\CandidateScoringService;
@@ -19,7 +19,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 use Illuminate\View\View;
 
 class JobController extends Controller
@@ -43,7 +42,7 @@ class JobController extends Controller
         ]);
     }
 
-    public function store(StoreJobRequest $request, AuditService $audit, TenantService $tenant, AiCandidateRankingService $ranking): RedirectResponse
+    public function store(StoreJobRequest $request, AuditService $audit, TenantService $tenant): RedirectResponse
     {
         $data = $request->validated();
         $data['company_id'] = $tenant->defaultCompanyId(Auth::user());
@@ -54,11 +53,7 @@ class JobController extends Controller
         foreach ($this->split($request->input('required_skills', '')) as $name) {
             $job->requiredSkills()->firstOrCreate(['name' => $name]);
         }
-        try {
-            $ranking->rankJob($job);
-        } catch (Throwable) {
-            // Ranking is an accelerator; job creation must still succeed if AI scoring is unavailable.
-        }
+        RankJobCandidates::dispatch($job->id); // sync inline by default; background with a queue
         $audit->log(Auth::id(), 'JOB_CREATE', 'jobs', (string) $job->id, [], $request);
         return redirect()->route('jobs.show', $job)->with('status', 'Job created');
     }
@@ -81,7 +76,7 @@ class JobController extends Controller
         ]);
     }
 
-    public function update(UpdateJobRequest $request, Job $job, AuditService $audit, AiCandidateRankingService $ranking): RedirectResponse
+    public function update(UpdateJobRequest $request, Job $job, AuditService $audit): RedirectResponse
     {
         $this->authorizeTenant($job);
         $data = $request->validated();
@@ -92,11 +87,7 @@ class JobController extends Controller
         foreach ($this->split($request->input('required_skills', '')) as $name) {
             $job->requiredSkills()->firstOrCreate(['name' => $name]);
         }
-        try {
-            $ranking->rankJob($job);
-        } catch (Throwable) {
-            // Ranking is an accelerator; the update must still succeed if AI scoring is unavailable.
-        }
+        RankJobCandidates::dispatch($job->id); // sync inline by default; background with a queue
         $audit->log(Auth::id(), 'JOB_UPDATE', 'jobs', (string) $job->id, [], $request);
 
         return redirect()->route('jobs.show', $job)->with('status', 'Job updated');
