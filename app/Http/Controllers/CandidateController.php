@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCandidateRequest;
+use App\Http\Requests\UpdateCandidateRequest;
 use App\Models\Candidate;
 use App\Models\Specialization;
 use App\Models\Tag;
@@ -14,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CandidateController extends Controller
@@ -46,10 +47,10 @@ class CandidateController extends Controller
         ]);
     }
 
-    public function store(Request $request, DuplicateDetectionService $duplicates, AuditService $audit, TenantService $tenant, CandidateQualityService $quality): RedirectResponse|JsonResponse
+    public function store(StoreCandidateRequest $request, DuplicateDetectionService $duplicates, AuditService $audit, TenantService $tenant, CandidateQualityService $quality): RedirectResponse|JsonResponse
     {
         $companyId = $tenant->defaultCompanyId(Auth::user());
-        $data = $this->validated($request, $companyId);
+        $data = $request->validated();
         $data['company_id'] = $companyId;
         if ($data['consent_status'] === 'CONSENTED') {
             $data['consent_captured_at'] = now()->toDateString();
@@ -124,10 +125,10 @@ class CandidateController extends Controller
         ]);
     }
 
-    public function update(Request $request, Candidate $candidate, DuplicateDetectionService $duplicates, AuditService $audit, CandidateQualityService $quality): RedirectResponse
+    public function update(UpdateCandidateRequest $request, Candidate $candidate, DuplicateDetectionService $duplicates, AuditService $audit, CandidateQualityService $quality): RedirectResponse
     {
         $this->authorizeTenant($candidate);
-        $data = $this->validated($request, $candidate->company_id, $candidate->id);
+        $data = $request->validated();
 
         // Capture consent metadata when a candidate is newly marked as consented.
         if ($data['consent_status'] === 'CONSENTED' && $candidate->consent_status !== 'CONSENTED') {
@@ -208,40 +209,6 @@ class CandidateController extends Controller
         $audit->log(Auth::id(), 'CANDIDATE_ACTION', 'candidates', (string) $candidate->id, $data, $request);
 
         return back()->with('status', 'Candidate updated');
-    }
-
-    private function validated(Request $request, ?int $companyId, ?int $ignoreId = null): array
-    {
-        return $request->validate([
-            'full_name' => ['required', 'string', 'max:160'],
-            'email' => ['nullable', 'email', $this->tenantUniqueRule('email', $companyId, $ignoreId)],
-            'phone' => ['nullable', 'string', 'max:40'],
-            'linkedin_url' => ['nullable', 'url', $this->tenantUniqueRule('linkedin_url', $companyId, $ignoreId)],
-            'title' => ['required', 'string', 'max:120'],
-            'current_company' => ['nullable', 'string', 'max:160'],
-            'specialization' => ['required', 'string', 'max:120'],
-            'industry' => ['nullable', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'nationality' => ['nullable', 'string', 'max:80'],
-            'years_experience' => ['nullable', 'integer', 'min:0', 'max:60'],
-            'expected_salary' => ['nullable', 'numeric', 'min:0'],
-            'current_salary' => ['nullable', 'numeric', 'min:0'],
-            'availability' => ['nullable', 'string', 'max:40'],
-            'notice_period' => ['nullable', 'string', 'max:80'],
-            'recruiter_rating' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'consent_status' => ['required', 'in:CONSENTED,PENDING,WITHDRAWN'],
-            'status' => ['nullable', 'in:NEW,REVIEWED,SHORTLISTED,INTERVIEW,OFFER,HIRED,REJECTED,BLACKLISTED'],
-        ]);
-    }
-
-    private function tenantUniqueRule(string $column, ?int $companyId, ?int $ignoreId = null)
-    {
-        $rule = Rule::unique('candidates', $column)->where(function ($query) use ($companyId) {
-            return is_null($companyId) ? $query->whereNull('company_id') : $query->where('company_id', $companyId);
-        });
-
-        return $ignoreId ? $rule->ignore($ignoreId) : $rule;
     }
 
     private function syncList(Candidate $candidate, string $relation, string $value): void

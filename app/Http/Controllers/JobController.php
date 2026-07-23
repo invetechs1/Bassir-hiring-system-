@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreJobRequest;
+use App\Http\Requests\UpdateJobRequest;
 use App\Models\Candidate;
 use App\Models\CandidateScore;
 use App\Models\Job;
@@ -41,26 +43,9 @@ class JobController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditService $audit, TenantService $tenant, AiCandidateRankingService $ranking): RedirectResponse
+    public function store(StoreJobRequest $request, AuditService $audit, TenantService $tenant, AiCandidateRankingService $ranking): RedirectResponse
     {
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:120'],
-            'specialization' => ['nullable', 'string', 'max:120'],
-            'department' => ['required', 'string', 'max:120'],
-            'company' => ['required', 'string', 'max:120'],
-            'project' => ['nullable', 'string', 'max:120'],
-            'location' => ['required', 'string', 'max:120'],
-            'employment_type' => ['nullable', 'string', 'max:80'],
-            'required_experience' => ['required', 'integer', 'min:0'],
-            'salary_budget_min' => ['required', 'numeric', 'min:0'],
-            'salary_budget_max' => ['required', 'numeric', 'min:0'],
-            'description' => ['required', 'string'],
-            'requirements' => ['nullable', 'string'],
-            'internal_notes' => ['nullable', 'string'],
-            'approval_status' => ['required', 'in:DRAFT,PENDING,APPROVED,CLOSED'],
-            'hiring_manager' => ['required', 'string', 'max:120'],
-            'vacancies' => ['required', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
         $data['company_id'] = $tenant->defaultCompanyId(Auth::user());
         $data['recruiter_id'] = Auth::id();
         $data['employment_type'] = $data['employment_type'] ?? 'Full-time';
@@ -96,27 +81,10 @@ class JobController extends Controller
         ]);
     }
 
-    public function update(Request $request, Job $job, AuditService $audit, AiCandidateRankingService $ranking): RedirectResponse
+    public function update(UpdateJobRequest $request, Job $job, AuditService $audit, AiCandidateRankingService $ranking): RedirectResponse
     {
         $this->authorizeTenant($job);
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:120'],
-            'specialization' => ['nullable', 'string', 'max:120'],
-            'department' => ['required', 'string', 'max:120'],
-            'company' => ['required', 'string', 'max:120'],
-            'project' => ['nullable', 'string', 'max:120'],
-            'location' => ['required', 'string', 'max:120'],
-            'employment_type' => ['nullable', 'string', 'max:80'],
-            'required_experience' => ['required', 'integer', 'min:0'],
-            'salary_budget_min' => ['required', 'numeric', 'min:0'],
-            'salary_budget_max' => ['required', 'numeric', 'min:0'],
-            'description' => ['required', 'string'],
-            'requirements' => ['nullable', 'string'],
-            'internal_notes' => ['nullable', 'string'],
-            'approval_status' => ['required', 'in:DRAFT,PENDING,APPROVED,CLOSED'],
-            'hiring_manager' => ['required', 'string', 'max:120'],
-            'vacancies' => ['required', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
         $data['employment_type'] = $data['employment_type'] ?? $job->employment_type ?? 'Full-time';
         $job->update($data);
 

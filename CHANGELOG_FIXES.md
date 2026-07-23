@@ -1,5 +1,18 @@
 # Changelog Fixes
 
+## 2026-07-21 Form Request Validation
+
+- Extracted candidate and job write-validation into dedicated Form Request
+  classes (`Store*/Update*CandidateRequest`, `Store*/Update*JobRequest`),
+  closing the documented "add Form Request classes for all write controllers"
+  follow-up.
+- Removed duplicated inline validation from the controllers (job create/update
+  rules were previously repeated) and the ad-hoc tenant-unique helper; the
+  tenant-scoped unique email/LinkedIn rule with self-ignore now lives in one
+  place and is shared by create and update.
+- Added tests for required-field enforcement, duplicate-email rejection, and
+  valid payloads passing through.
+
 ## 2026-07-21 Archive & Restore
 
 - Added recoverable soft-delete archiving for candidates and jobs (never a hard
