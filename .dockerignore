@@ -1,0 +1,16 @@
+.git
+.claude
+.env
+.env.backup
+.env.production
+vendor
+node_modules
+storage/app/private/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
+storage/logs/*
+bootstrap/cache/*.php
+*.tar
+*.tar.gz
