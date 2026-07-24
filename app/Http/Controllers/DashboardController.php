@@ -9,6 +9,7 @@ use App\Models\CandidateScore;
 use App\Models\Interview;
 use App\Models\Job;
 use App\Models\PipelineStageHistory;
+use App\Models\User;
 use App\Services\TenantService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -26,6 +27,32 @@ class DashboardController extends Controller
         $jobPool = $tenant->scope(Job::withCount(['scores as strong_scores_count' => fn ($query) => $query->where('overall', '>=', 60)]), $user)->get();
         $aiReviewed = CandidateScore::whereHas('candidate', fn ($query) => $tenant->scope($query, $user))->count();
         $aiShortlisted = (clone $applicationQuery)->whereNotNull('ai_shortlisted_at')->count();
+
+        // Source-of-hire effectiveness: candidates and hires per sourcing channel.
+        $sourceOfHire = $tenant->scope(Candidate::query(), $user)
+            ->join('candidate_sources', 'candidate_sources.candidate_id', '=', 'candidates.id')
+            ->selectRaw("candidate_sources.source_type as source_type, count(distinct candidates.id) as candidates, sum(case when candidates.status = 'HIRED' then 1 else 0 end) as hires")
+            ->groupBy('candidate_sources.source_type')
+            ->orderByDesc('candidates')
+            ->limit(8)
+            ->get();
+
+        // Recruiter productivity: owned jobs and reviewed applications per recruiter.
+        $recruiterJobs = $tenant->scope(Job::query(), $user)->whereNotNull('recruiter_id')
+            ->selectRaw('recruiter_id, count(*) as total')->groupBy('recruiter_id')->pluck('total', 'recruiter_id');
+        $recruiterApps = $tenant->scope(CandidateApplication::query(), $user)->whereNotNull('reviewed_by')
+            ->selectRaw('reviewed_by, count(*) as total')->groupBy('reviewed_by')->pluck('total', 'reviewed_by');
+        $recruiterIds = $recruiterJobs->keys()->merge($recruiterApps->keys())->unique()->values();
+        $recruiterNames = User::whereIn('id', $recruiterIds)->pluck('name', 'id');
+        $recruiters = $recruiterIds->map(fn ($id) => [
+            'name' => $recruiterNames[$id] ?? '—',
+            'jobs' => (int) ($recruiterJobs[$id] ?? 0),
+            'applications' => (int) ($recruiterApps[$id] ?? 0),
+        ])->sortByDesc(fn ($row) => $row['jobs'] + $row['applications'])->take(8)->values();
+
+        // Pipeline stage distribution across active applications.
+        $stageDistribution = (clone $applicationQuery)
+            ->selectRaw('current_stage, count(*) as total')->groupBy('current_stage')->pluck('total', 'current_stage');
 
         return view('dashboard.index', [
             'totalCandidates' => (clone $candidateQuery)->count(),
@@ -49,6 +76,9 @@ class DashboardController extends Controller
                 'jobs_without_enough_candidates' => $jobPool->where('strong_scores_count', '<', 3)->count(),
                 'urgent_hiring_positions' => $jobPool->filter(fn ($job) => in_array($job->approval_status, ['PENDING', 'APPROVED'], true) && $job->strong_scores_count < max(1, (int) $job->vacancies))->count(),
             ],
+            'sourceOfHire' => $sourceOfHire,
+            'recruiters' => $recruiters,
+            'stageDistribution' => $stageDistribution,
         ]);
     }
 

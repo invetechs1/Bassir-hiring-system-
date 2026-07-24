@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AiSearchJob;
 use App\Models\Candidate;
 use App\Models\CandidateDocument;
+use App\Jobs\RunSourcingSearch;
 use App\Models\SourcingRun;
 use App\Models\SourcingSearch;
 use App\Models\User;
@@ -95,21 +96,24 @@ class AutoSourcingService
         return $run;
     }
 
-    /** Run every active saved search (used by the scheduled command). */
+    /**
+     * Queue every active saved search (used by the scheduled command). Each
+     * search is dispatched independently so a large batch never runs as one long
+     * process; under the sync driver they execute inline. Returns the count queued.
+     */
     public function runDueSearches(?int $companyId = null): int
     {
-        $query = SourcingSearch::query()->where('is_active', true)->where('frequency', '!=', 'manual');
-        if ($companyId) {
-            $query->where('company_id', $companyId);
+        $ids = SourcingSearch::query()
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'manual')
+            ->when($companyId, fn ($query) => $query->where('company_id', $companyId))
+            ->pluck('id');
+
+        foreach ($ids as $id) {
+            RunSourcingSearch::dispatch($id);
         }
 
-        $count = 0;
-        foreach ($query->get() as $search) {
-            $this->runSearch($search);
-            $count++;
-        }
-
-        return $count;
+        return $ids->count();
     }
 
     /**

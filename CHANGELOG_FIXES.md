@@ -1,5 +1,72 @@
 # Changelog Fixes
 
+## 2026-07-21 Continuous Integration
+
+- Added a GitHub Actions CI workflow (`.github/workflows/ci.yml`) that runs on
+  every push and pull request across PHP 8.2 and 8.4: installs dependencies,
+  runs the production cache gate (config/route/view caching), migrates+seeds on
+  SQLite, and executes the full PHPUnit suite.
+- Added a CI status badge to the README.
+- Verified locally: the exact workflow command sequence is green (64 tests).
+
+## 2026-07-21 Background Queue for Heavy Work
+
+- Moved AI candidate ranking (on job create/update) and scheduled auto-sourcing
+  runs onto Laravel's queue via `RankJobCandidates` and `RunSourcingSearch` jobs,
+  so large runs never block a web request or hit PHP's max execution time.
+- Stays `sync` (inline) by default for shared hosting; set
+  `QUEUE_CONNECTION=database` + run a worker for background processing at scale.
+- Added `config/queue.php` and a queue-tables migration using `queue_jobs`
+  (renamed to avoid colliding with the recruitment `jobs` requisitions table),
+  plus `.env.example` and README worker/cron guidance.
+- Fixed a latent bug: `SourcingRun` counter columns were null in memory before a
+  refresh, which crashed a zero-result sourcing run when writing
+  `last_import_count`; the model now defaults all counters to 0.
+- Tests: ranking dispatched on job create/update, ranking handler produces
+  scores, one queued job per active search, and the sourcing handler records a
+  run (suite 58 -> 63).
+
+## 2026-07-21 Form Request Validation
+
+- Extracted candidate and job write-validation into dedicated Form Request
+  classes (`Store*/Update*CandidateRequest`, `Store*/Update*JobRequest`),
+  closing the documented "add Form Request classes for all write controllers"
+  follow-up.
+- Removed duplicated inline validation from the controllers (job create/update
+  rules were previously repeated) and the ad-hoc tenant-unique helper; the
+  tenant-scoped unique email/LinkedIn rule with self-ignore now lives in one
+  place and is shared by create and update.
+- Added tests for required-field enforcement, duplicate-email rejection, and
+  valid payloads passing through.
+
+## 2026-07-21 Archive & Restore
+
+- Added recoverable soft-delete archiving for candidates and jobs (never a hard
+  delete of PII): archive from the edit screen, view archived records via an
+  Active/Archived toggle on each list, and restore with one click.
+- Archive/restore are permission-gated (`candidate.write` / `job.write`),
+  tenant-scoped, and audit-logged (`*_ARCHIVE` / `*_RESTORE`).
+- Archived records are automatically excluded from all default queries, lists,
+  matching, and reports via Eloquent SoftDeletes.
+- Lists now show session flash messages and empty-state text; pagination
+  preserves search/filter/archived query strings.
+- Tests cover archive, hidden-from-default-queries, restore, and the
+  read-only-role guard.
+
+## 2026-07-21 Edit Screens
+
+- Added candidate edit/update (`/candidates/{id}/edit`) and job edit/update
+  (`/jobs/{id}/edit`), closing the previously documented gap where records could
+  be created and viewed but not modified.
+- Edit is permission-gated (`candidate.write` / `job.write`), tenant-scoped,
+  audit-logged, and preserves consent metadata; candidate skills/languages and
+  job required-skills are replaced cleanly on save, and jobs are re-ranked.
+- Tenant-unique email/LinkedIn validation now ignores the record being edited.
+- Added "Edit" actions on the candidate and job profile pages.
+- Tests cover edit page load, update persistence, self-unique validation, and
+  the read-only-role guard.
+
+
 ## 2026-06-04 Production Repair Pass
 
 - Upgraded project dependency target from Laravel 11 to Laravel 12 in `composer.json`.

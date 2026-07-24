@@ -3,7 +3,12 @@
 @section('content')
 <div class="grid grid-3">
     <section class="card" style="grid-column:span 2">
-        <h2>{{ $candidate->full_name }}</h2>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <h2 style="margin-top:0">{{ $candidate->full_name }}</h2>
+            @if(auth()->user()->hasPermission('candidate.write'))
+                <a class="btn btn-light" href="{{ route('candidates.edit', $candidate) }}">Edit</a>
+            @endif
+        </div>
         <p class="muted">{{ $candidate->title }} · {{ $candidate->current_company ?: 'Company not set' }} · {{ $candidate->city }} · {{ $candidate->country }} · {{ $candidate->years_experience }} years</p>
         <p>{{ $candidate->ai_summary }}</p>
         <p>

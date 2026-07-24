@@ -8,7 +8,7 @@
 .env.production
 auth.json
 
-# Laravel runtime
+# Laravel runtime (ignore contents, keep the directories via .gitkeep)
 /storage/*.key
 /storage/app/private/*
 !/storage/app/private/.gitkeep

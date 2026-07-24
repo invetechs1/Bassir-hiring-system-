@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreJobRequest;
+use App\Http\Requests\UpdateJobRequest;
+use App\Jobs\RankJobCandidates;
 use App\Models\Candidate;
 use App\Models\CandidateScore;
 use App\Models\Job;
 use App\Models\Specialization;
-use App\Services\AiCandidateRankingService;
 use App\Services\AiInsightsService;
 use App\Services\AuditService;
 use App\Services\CandidateScoringService;
@@ -17,14 +19,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 use Illuminate\View\View;
 
 class JobController extends Controller
 {
-    public function index(TenantService $tenant): View
+    public function index(Request $request, TenantService $tenant): View
     {
-        return view('jobs.index', ['jobs' => $tenant->scope(Job::with('requiredSkills'), Auth::user())->latest()->paginate(20)]);
+        $archived = $request->boolean('archived');
+        $jobs = $tenant->scope(Job::with('requiredSkills'), Auth::user())
+            ->when($archived, fn ($query) => $query->onlyTrashed())
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('jobs.index', compact('jobs', 'archived'));
     }
 
     public function create(): View
@@ -34,26 +42,9 @@ class JobController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditService $audit, TenantService $tenant, AiCandidateRankingService $ranking): RedirectResponse
+    public function store(StoreJobRequest $request, AuditService $audit, TenantService $tenant): RedirectResponse
     {
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:120'],
-            'specialization' => ['nullable', 'string', 'max:120'],
-            'department' => ['required', 'string', 'max:120'],
-            'company' => ['required', 'string', 'max:120'],
-            'project' => ['nullable', 'string', 'max:120'],
-            'location' => ['required', 'string', 'max:120'],
-            'employment_type' => ['nullable', 'string', 'max:80'],
-            'required_experience' => ['required', 'integer', 'min:0'],
-            'salary_budget_min' => ['required', 'numeric', 'min:0'],
-            'salary_budget_max' => ['required', 'numeric', 'min:0'],
-            'description' => ['required', 'string'],
-            'requirements' => ['nullable', 'string'],
-            'internal_notes' => ['nullable', 'string'],
-            'approval_status' => ['required', 'in:DRAFT,PENDING,APPROVED,CLOSED'],
-            'hiring_manager' => ['required', 'string', 'max:120'],
-            'vacancies' => ['required', 'integer', 'min:1'],
-        ]);
+        $data = $request->validated();
         $data['company_id'] = $tenant->defaultCompanyId(Auth::user());
         $data['recruiter_id'] = Auth::id();
         $data['employment_type'] = $data['employment_type'] ?? 'Full-time';
@@ -62,11 +53,7 @@ class JobController extends Controller
         foreach ($this->split($request->input('required_skills', '')) as $name) {
             $job->requiredSkills()->firstOrCreate(['name' => $name]);
         }
-        try {
-            $ranking->rankJob($job);
-        } catch (Throwable) {
-            // Ranking is an accelerator; job creation must still succeed if AI scoring is unavailable.
-        }
+        RankJobCandidates::dispatch($job->id); // sync inline by default; background with a queue
         $audit->log(Auth::id(), 'JOB_CREATE', 'jobs', (string) $job->id, [], $request);
         return redirect()->route('jobs.show', $job)->with('status', 'Job created');
     }
@@ -76,6 +63,53 @@ class JobController extends Controller
         $this->authorizeTenant($job);
         $job->load('requiredSkills', 'scores.candidate');
         return view('jobs.show', compact('job'));
+    }
+
+    public function edit(Job $job): View
+    {
+        $this->authorizeTenant($job);
+        $job->load('requiredSkills');
+
+        return view('jobs.edit', [
+            'job' => $job,
+            'specializations' => Specialization::where('is_active', true)->orderBy('category')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(UpdateJobRequest $request, Job $job, AuditService $audit): RedirectResponse
+    {
+        $this->authorizeTenant($job);
+        $data = $request->validated();
+        $data['employment_type'] = $data['employment_type'] ?? $job->employment_type ?? 'Full-time';
+        $job->update($data);
+
+        $job->requiredSkills()->delete();
+        foreach ($this->split($request->input('required_skills', '')) as $name) {
+            $job->requiredSkills()->firstOrCreate(['name' => $name]);
+        }
+        RankJobCandidates::dispatch($job->id); // sync inline by default; background with a queue
+        $audit->log(Auth::id(), 'JOB_UPDATE', 'jobs', (string) $job->id, [], $request);
+
+        return redirect()->route('jobs.show', $job)->with('status', 'Job updated');
+    }
+
+    public function destroy(Job $job, AuditService $audit, Request $request): RedirectResponse
+    {
+        $this->authorizeTenant($job);
+        $job->delete(); // soft delete (archive) — recoverable
+        $audit->log(Auth::id(), 'JOB_ARCHIVE', 'jobs', (string) $job->id, [], $request);
+
+        return redirect()->route('jobs.index')->with('status', 'Job archived. You can restore it from the archived view.');
+    }
+
+    public function restore(int $job, AuditService $audit, Request $request): RedirectResponse
+    {
+        $model = Job::withTrashed()->findOrFail($job);
+        $this->authorizeTenant($model);
+        $model->restore();
+        $audit->log(Auth::id(), 'JOB_RESTORE', 'jobs', (string) $model->id, [], $request);
+
+        return redirect()->route('jobs.show', $model)->with('status', 'Job restored.');
     }
 
     public function match(

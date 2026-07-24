@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Candidate extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'company_id', 'full_name', 'email', 'phone', 'linkedin_url', 'title', 'current_company',
         'specialization', 'industry', 'country', 'city',

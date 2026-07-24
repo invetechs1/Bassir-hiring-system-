@@ -18,6 +18,16 @@ class SourcingRun extends Model
         'finished_at' => 'datetime',
     ];
 
+    /** In-memory defaults so counters are never null before the row is refreshed. */
+    protected $attributes = [
+        'status' => 'RUNNING',
+        'results_found' => 0,
+        'candidates_created' => 0,
+        'candidates_linked' => 0,
+        'cvs_downloaded' => 0,
+        'flagged_manual' => 0,
+    ];
+
     public function search(): BelongsTo
     {
         return $this->belongsTo(SourcingSearch::class, 'sourcing_search_id');

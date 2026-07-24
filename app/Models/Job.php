@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Job extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'company_id', 'recruiter_id', 'title', 'public_slug', 'specialization', 'department', 'company', 'project',
         'location', 'employment_type', 'required_experience',
