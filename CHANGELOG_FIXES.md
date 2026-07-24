@@ -1,5 +1,14 @@
 # Changelog Fixes
 
+## 2026-07-21 Continuous Integration
+
+- Added a GitHub Actions CI workflow (`.github/workflows/ci.yml`) that runs on
+  every push and pull request across PHP 8.2 and 8.4: installs dependencies,
+  runs the production cache gate (config/route/view caching), migrates+seeds on
+  SQLite, and executes the full PHPUnit suite.
+- Added a CI status badge to the README.
+- Verified locally: the exact workflow command sequence is green (64 tests).
+
 ## 2026-07-21 Background Queue for Heavy Work
 
 - Moved AI candidate ranking (on job create/update) and scheduled auto-sourcing

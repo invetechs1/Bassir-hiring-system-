@@ -1,5 +1,7 @@
 # Bassir AI Recruitment System
 
+[![CI](https://github.com/invetechs1/Bassir-hiring-system-/actions/workflows/ci.yml/badge.svg)](https://github.com/invetechs1/Bassir-hiring-system-/actions/workflows/ci.yml)
+
 Laravel shared-hosting edition, powered by Bassir Technology.
 
 This package is redesigned for cPanel/Plesk/DirectAdmin shared hosting using:
