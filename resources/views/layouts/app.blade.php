@@ -59,6 +59,16 @@
             @if(auth()->user()->hasPermission('interview.read'))
             <a href="{{ route('interviews.index') }}">Interviews</a>
             @endif
+            @if(auth()->user()->hasPermission('assessment.manage'))
+            <a href="{{ route('assessments.index') }}">Assessments</a>
+            @endif
+            @if(auth()->user()->hasPermission('offer.manage'))
+            <a href="{{ route('offers.index') }}">Offers</a>
+            <a href="{{ route('onboarding.index') }}">Onboarding</a>
+            @endif
+            @if(auth()->user()->isSuperAdmin() || (auth()->user()->hasAnyRole(['COMPANY_ADMIN']) && auth()->user()->hasPermission('bias_monitoring.view')))
+            <a href="{{ route('bias-monitoring.index') }}">Bias Monitoring</a>
+            @endif
             @if(auth()->user()->hasPermission('salary.manage'))
             <a href="{{ route('salary-benchmarks.index') }}">Salary Benchmarks</a>
             @endif

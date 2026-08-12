@@ -57,5 +57,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if (! in_array('candidate', $e->guards(), true) || $request->expectsJson()) {
+                return null;
+            }
+
+            $slug = $request->route('company') ?? $request->session()->get('portal_company_slug');
+
+            return $slug
+                ? redirect()->guest(route('portal.login', $slug))
+                : redirect()->guest(url('/'));
+        });
     })->create();

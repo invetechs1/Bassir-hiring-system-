@@ -44,6 +44,9 @@ class Candidate extends Model
     public function interviews(): HasMany { return $this->hasMany(Interview::class); }
     public function applications(): HasMany { return $this->hasMany(CandidateApplication::class); }
     public function aiRecommendationFeedback(): HasMany { return $this->hasMany(AiRecommendationFeedback::class); }
+    public function account(): \Illuminate\Database\Eloquent\Relations\HasOne { return $this->hasOne(CandidateAccount::class); }
+    public function assessments(): HasMany { return $this->hasMany(CandidateAssessment::class); }
+    public function offers(): HasMany { return $this->hasMany(Offer::class); }
 
     public function tags(): BelongsToMany
     {
