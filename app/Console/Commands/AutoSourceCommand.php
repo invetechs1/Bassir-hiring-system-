@@ -31,7 +31,7 @@ class AutoSourceCommand extends Command
 
         $company = $this->option('company') ? (int) $this->option('company') : null;
         $count = $engine->runDueSearches($company);
-        $this->info("Completed {$count} active sourcing search(es).");
+        $this->info("Queued {$count} active sourcing search(es) for processing.");
 
         return self::SUCCESS;
     }

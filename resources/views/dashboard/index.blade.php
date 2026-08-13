@@ -63,4 +63,54 @@
         @endforelse
     </section>
 </div>
+
+<h2 style="margin:24px 0 4px">Recruitment Analytics</h2>
+<div class="grid grid-3">
+    <section class="card">
+        <h3 style="margin-top:0">Source of Hire</h3>
+        <p class="muted" style="margin-top:0">Candidates &amp; hires per channel</p>
+        <table>
+            <thead><tr><th>Source</th><th>Cands</th><th>Hired</th><th>Rate</th></tr></thead>
+            <tbody>
+            @forelse($sourceOfHire as $row)
+                <tr>
+                    <td>{{ $row->source_type }}</td>
+                    <td>{{ $row->candidates }}</td>
+                    <td>{{ $row->hires }}</td>
+                    <td>{{ $row->candidates > 0 ? round($row->hires / $row->candidates * 100).'%' : '—' }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="4" class="muted">No source data yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </section>
+    <section class="card">
+        <h3 style="margin-top:0">Recruiter Productivity</h3>
+        <p class="muted" style="margin-top:0">Owned jobs &amp; reviewed applications</p>
+        <table>
+            <thead><tr><th>Recruiter</th><th>Jobs</th><th>Apps</th></tr></thead>
+            <tbody>
+            @forelse($recruiters as $row)
+                <tr><td>{{ $row['name'] }}</td><td>{{ $row['jobs'] }}</td><td>{{ $row['applications'] }}</td></tr>
+            @empty
+                <tr><td colspan="3" class="muted">No recruiter activity yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </section>
+    <section class="card">
+        <h3 style="margin-top:0">Pipeline Stage Distribution</h3>
+        <p class="muted" style="margin-top:0">Active applications by stage</p>
+        @php($stageMax = max(1, ($stageDistribution->max() ?? 0)))
+        @forelse($stageDistribution as $stage => $total)
+            <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ $stage }}</span><strong>{{ $total }}</strong></div>
+                <div style="height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:{{ round($total / $stageMax * 100) }}%;background:var(--teal)"></div></div>
+            </div>
+        @empty
+            <p class="muted">No applications in the pipeline yet.</p>
+        @endforelse
+    </section>
+</div>
 @endsection
