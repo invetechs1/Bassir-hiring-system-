@@ -29,6 +29,8 @@ LOCAL_TEST_CREDENTIALS.md
 /public/storage
 .phpunit.result.cache
 .phpunit.cache
+*.tar
+*.tar.gz
 
 # Local databases
 *.sqlite
