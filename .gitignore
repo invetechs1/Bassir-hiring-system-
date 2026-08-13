@@ -9,7 +9,7 @@
 auth.json
 LOCAL_TEST_CREDENTIALS.md
 
-# Laravel runtime
+# Laravel runtime (ignore contents, keep the directories via .gitkeep)
 /storage/*.key
 /storage/app/private/*
 !/storage/app/private/.gitkeep

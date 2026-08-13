@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCandidateRequest;
+use App\Http\Requests\UpdateCandidateRequest;
 use App\Models\Candidate;
 use App\Models\Specialization;
 use App\Models\Tag;
@@ -14,14 +16,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CandidateController extends Controller
 {
     public function index(Request $request, TenantService $tenant): View
     {
+        $archived = $request->boolean('archived');
         $candidates = $tenant->scope(Candidate::query(), Auth::user())
+            ->when($archived, fn ($query) => $query->onlyTrashed())
             ->with(['skills', 'languages', 'scores'])
             ->when($request->q, fn ($query) => $query->where(function ($inner) use ($request) {
                 $inner->where('full_name', 'like', "%{$request->q}%")
@@ -31,9 +34,10 @@ class CandidateController extends Controller
             }))
             ->when($request->status, fn ($query) => $query->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('candidates.index', compact('candidates'));
+        return view('candidates.index', compact('candidates', 'archived'));
     }
 
     public function create(): View
@@ -43,10 +47,10 @@ class CandidateController extends Controller
         ]);
     }
 
-    public function store(Request $request, DuplicateDetectionService $duplicates, AuditService $audit, TenantService $tenant, CandidateQualityService $quality): RedirectResponse|JsonResponse
+    public function store(StoreCandidateRequest $request, DuplicateDetectionService $duplicates, AuditService $audit, TenantService $tenant, CandidateQualityService $quality): RedirectResponse|JsonResponse
     {
         $companyId = $tenant->defaultCompanyId(Auth::user());
-        $data = $this->validated($request, $companyId);
+        $data = $request->validated();
         $data['company_id'] = $companyId;
         if ($data['consent_status'] === 'CONSENTED') {
             $data['consent_captured_at'] = now()->toDateString();
@@ -110,6 +114,66 @@ class CandidateController extends Controller
         return view('candidates.show', compact('candidate'));
     }
 
+    public function edit(Candidate $candidate): View
+    {
+        $this->authorizeTenant($candidate);
+        $candidate->load('skills', 'languages');
+
+        return view('candidates.edit', [
+            'candidate' => $candidate,
+            'specializations' => Specialization::where('is_active', true)->orderBy('category')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(UpdateCandidateRequest $request, Candidate $candidate, DuplicateDetectionService $duplicates, AuditService $audit, CandidateQualityService $quality): RedirectResponse
+    {
+        $this->authorizeTenant($candidate);
+        $data = $request->validated();
+
+        // Capture consent metadata when a candidate is newly marked as consented.
+        if ($data['consent_status'] === 'CONSENTED' && $candidate->consent_status !== 'CONSENTED') {
+            $data['consent_captured_at'] = now()->toDateString();
+            $data['consent_captured_by'] = Auth::id();
+            $data['contact_allowed'] = true;
+        }
+        $data['duplicate_hash'] = $duplicates->hash($data);
+
+        DB::transaction(function () use ($candidate, $data, $request) {
+            $candidate->update($data);
+            $candidate->skills()->delete();
+            $candidate->languages()->delete();
+            $this->syncList($candidate, 'skills', $request->input('skills', ''));
+            $this->syncList($candidate, 'languages', $request->input('languages', ''));
+        });
+
+        $fresh = $candidate->fresh(['skills', 'languages', 'education', 'certifications', 'experience', 'documents', 'interviews.feedback', 'scores']);
+        if ($fresh) {
+            $quality->update($fresh);
+        }
+        $audit->log(Auth::id(), 'CANDIDATE_UPDATE', 'candidates', (string) $candidate->id, [], $request);
+
+        return redirect()->route('candidates.show', $candidate)->with('status', 'Candidate updated');
+    }
+
+    public function destroy(Candidate $candidate, AuditService $audit, Request $request): RedirectResponse
+    {
+        $this->authorizeTenant($candidate);
+        $candidate->delete(); // soft delete (archive) — recoverable
+        $audit->log(Auth::id(), 'CANDIDATE_ARCHIVE', 'candidates', (string) $candidate->id, [], $request);
+
+        return redirect()->route('candidates.index')->with('status', 'Candidate archived. You can restore it from the archived view.');
+    }
+
+    public function restore(int $candidate, AuditService $audit, Request $request): RedirectResponse
+    {
+        $model = Candidate::withTrashed()->findOrFail($candidate);
+        $this->authorizeTenant($model);
+        $model->restore();
+        $audit->log(Auth::id(), 'CANDIDATE_RESTORE', 'candidates', (string) $model->id, [], $request);
+
+        return redirect()->route('candidates.show', $model)->with('status', 'Candidate restored.');
+    }
+
     public function action(Request $request, Candidate $candidate, AuditService $audit): RedirectResponse
     {
         $this->authorizeTenant($candidate);
@@ -145,38 +209,6 @@ class CandidateController extends Controller
         $audit->log(Auth::id(), 'CANDIDATE_ACTION', 'candidates', (string) $candidate->id, $data, $request);
 
         return back()->with('status', 'Candidate updated');
-    }
-
-    private function validated(Request $request, ?int $companyId): array
-    {
-        return $request->validate([
-            'full_name' => ['required', 'string', 'max:160'],
-            'email' => ['nullable', 'email', $this->tenantUniqueRule('email', $companyId)],
-            'phone' => ['nullable', 'string', 'max:40'],
-            'linkedin_url' => ['nullable', 'url', $this->tenantUniqueRule('linkedin_url', $companyId)],
-            'title' => ['required', 'string', 'max:120'],
-            'current_company' => ['nullable', 'string', 'max:160'],
-            'specialization' => ['required', 'string', 'max:120'],
-            'industry' => ['nullable', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'nationality' => ['nullable', 'string', 'max:80'],
-            'years_experience' => ['nullable', 'integer', 'min:0', 'max:60'],
-            'expected_salary' => ['nullable', 'numeric', 'min:0'],
-            'current_salary' => ['nullable', 'numeric', 'min:0'],
-            'availability' => ['nullable', 'string', 'max:40'],
-            'notice_period' => ['nullable', 'string', 'max:80'],
-            'recruiter_rating' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'consent_status' => ['required', 'in:CONSENTED,PENDING,WITHDRAWN'],
-            'status' => ['nullable', 'in:NEW,REVIEWED,SHORTLISTED,INTERVIEW,OFFER,HIRED,REJECTED,BLACKLISTED'],
-        ]);
-    }
-
-    private function tenantUniqueRule(string $column, ?int $companyId)
-    {
-        return Rule::unique('candidates', $column)->where(function ($query) use ($companyId) {
-            return is_null($companyId) ? $query->whereNull('company_id') : $query->where('company_id', $companyId);
-        });
     }
 
     private function syncList(Candidate $candidate, string $relation, string $value): void
