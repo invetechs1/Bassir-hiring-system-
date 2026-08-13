@@ -7,6 +7,7 @@
 .env.backup
 .env.production
 auth.json
+LOCAL_TEST_CREDENTIALS.md
 
 # Laravel runtime
 /storage/*.key
@@ -28,6 +29,8 @@ auth.json
 /public/storage
 .phpunit.result.cache
 .phpunit.cache
+*.tar
+*.tar.gz
 
 # Local databases
 *.sqlite

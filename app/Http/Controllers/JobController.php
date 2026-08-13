@@ -59,7 +59,7 @@ class JobController extends Controller
         $data['employment_type'] = $data['employment_type'] ?? 'Full-time';
         $data['public_slug'] = $this->uniqueSlug($data['title'].' '.$data['location']);
         $job = Job::create($data);
-        foreach ($this->split($request->input('required_skills', '')) as $name) {
+        foreach ($this->split($request->input('required_skills') ?? '') as $name) {
             $job->requiredSkills()->firstOrCreate(['name' => $name]);
         }
         try {
@@ -76,6 +76,51 @@ class JobController extends Controller
         $this->authorizeTenant($job);
         $job->load('requiredSkills', 'scores.candidate');
         return view('jobs.show', compact('job'));
+    }
+
+    public function edit(Job $job): View
+    {
+        $this->authorizeTenant($job);
+        $job->load('requiredSkills');
+
+        return view('jobs.edit', [
+            'job' => $job,
+            'specializations' => Specialization::where('is_active', true)->orderBy('category')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(Request $request, Job $job, AuditService $audit): RedirectResponse
+    {
+        $this->authorizeTenant($job);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:120'],
+            'specialization' => ['nullable', 'string', 'max:120'],
+            'department' => ['required', 'string', 'max:120'],
+            'company' => ['required', 'string', 'max:120'],
+            'project' => ['nullable', 'string', 'max:120'],
+            'location' => ['required', 'string', 'max:120'],
+            'employment_type' => ['nullable', 'string', 'max:80'],
+            'required_experience' => ['required', 'integer', 'min:0'],
+            'salary_budget_min' => ['required', 'numeric', 'min:0'],
+            'salary_budget_max' => ['required', 'numeric', 'min:0'],
+            'description' => ['required', 'string'],
+            'requirements' => ['nullable', 'string'],
+            'internal_notes' => ['nullable', 'string'],
+            'approval_status' => ['required', 'in:DRAFT,PENDING,APPROVED,CLOSED'],
+            'hiring_manager' => ['required', 'string', 'max:120'],
+            'vacancies' => ['required', 'integer', 'min:1'],
+        ]);
+        $data['employment_type'] = $data['employment_type'] ?? 'Full-time';
+        $job->update($data);
+
+        $job->requiredSkills()->delete();
+        foreach ($this->split($request->input('required_skills') ?? '') as $name) {
+            $job->requiredSkills()->firstOrCreate(['name' => $name]);
+        }
+
+        $audit->log(Auth::id(), 'JOB_UPDATE', 'jobs', (string) $job->id, [], $request);
+
+        return redirect()->route('jobs.show', $job)->with('status', 'Job updated');
     }
 
     public function match(

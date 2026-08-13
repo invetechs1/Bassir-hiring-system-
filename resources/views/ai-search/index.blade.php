@@ -19,31 +19,57 @@
 </form>
 @isset($queries)
 <section class="card" style="margin-top:18px">
-    <h2>Generated Queries</h2>
-    @foreach($queries as $query)<p><code>{{ $query }}</code></p>@endforeach
+    <details>
+        <summary style="cursor:pointer;font-weight:750;color:var(--ink)">Generated search queries ({{ count($queries) }})</summary>
+        <p class="muted" style="margin-top:10px">
+            These are the exact queries sent to the configured search providers (Google Custom Search, Bing, SerpAPI),
+            shown here for transparency and compliance audit — you don't need to do anything with them.
+        </p>
+        @foreach($queries as $query)<p><code>{{ $query }}</code></p>@endforeach
+    </details>
 </section>
 <section class="card" style="margin-top:18px;padding:0">
-    <table><thead><tr><th>Source</th><th>Title</th><th>Type</th><th>Compliance</th><th>Import</th></tr></thead><tbody>
-    @foreach($results as $result)
+    <div style="padding:20px 20px 0">
+        <h2 style="margin:0">Search results ({{ count($results) }})</h2>
+        <p class="muted" style="margin-top:6px">
+            Review each result, then choose a consent status and click Import to add it as a candidate lead.
+            <strong>Nothing is added to your candidate database automatically</strong> — importing is always a manual, per-result decision.
+        </p>
+    </div>
+    <table><thead><tr><th>Source</th><th>Result</th><th>File Type</th><th>Compliance</th><th style="min-width:230px">Import as candidate</th></tr></thead><tbody>
+    @forelse($results as $result)
         <tr>
             <td>{{ $result['source'] }}</td>
             <td><a href="{{ $result['url'] }}" target="_blank">{{ $result['title'] }}</a><br><span class="muted">{{ $result['snippet'] }}</span></td>
             <td>{{ $result['file_type'] }}</td>
-            <td>{{ $result['compliance_status'] }}<br><span class="muted">{{ $result['compliance_note'] }}</span></td>
+            <td>
+                @if($result['compliance_status'] === 'allowed')
+                    <span class="badge">Allowed</span>
+                @else
+                    <span class="badge" style="background:#fef3c7;color:#92400e">Manual review required</span>
+                @endif
+                <div class="muted" style="margin-top:4px;font-size:12px">{{ $result['compliance_note'] }}</div>
+            </td>
             <td>
                 @if(isset($searchJob))
                     @php($row = $searchJob->results->firstWhere('source_url', $result['url']))
                     @if($row)
-                    <form method="post" action="{{ route('ai-search.import-result') }}" style="display:grid;gap:6px;min-width:220px">
+                    <form method="post" action="{{ route('ai-search.import-result') }}" style="display:grid;gap:8px">
                         @csrf
                         <input type="hidden" name="result_id" value="{{ $row->id }}">
-                        <input name="specialization" value="{{ request('specialization', 'Unclassified') }}" placeholder="Specialization">
-                        <select name="consent_status">
-                            <option value="PENDING">PENDING</option>
-                            <option value="CONSENTED">CONSENTED</option>
-                            <option value="WITHDRAWN">WITHDRAWN</option>
-                        </select>
-                        <button class="btn btn-dark">Import</button>
+                        <div class="field">
+                            <label style="font-size:11px;text-transform:uppercase;color:#64748b">Specialization</label>
+                            <input name="specialization" value="{{ request('specialization', 'Unclassified') }}">
+                        </div>
+                        <div class="field">
+                            <label style="font-size:11px;text-transform:uppercase;color:#64748b">Consent status</label>
+                            <select name="consent_status">
+                                <option value="PENDING">Pending — not yet contacted</option>
+                                <option value="CONSENTED">Consented — candidate agreed to be contacted</option>
+                                <option value="WITHDRAWN">Withdrawn</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-dark">Import as Candidate</button>
                     </form>
                     @else
                     <span class="muted">Unavailable</span>
@@ -51,7 +77,9 @@
                 @endif
             </td>
         </tr>
-    @endforeach
+    @empty
+        <tr><td colspan="5" class="muted" style="padding:20px">No results were returned for this search. Try broadening the job title, specialization, or removing some skill filters.</td></tr>
+    @endforelse
     </tbody></table>
 </section>
 @endisset

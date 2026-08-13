@@ -368,6 +368,7 @@ AI recommendations are decision-support only. Human HR review is required before
 - Server QA suite: `scripts/qa-server-suite.sh`
 - QA checklist: `docs/FINAL_QA_CHECKLIST.md`
 - API reference: `docs/API_REFERENCE.md`
+- Candidate portal / assessments / offers & onboarding / bias monitoring testing guide: `docs/HIRING_EXPANSION_TESTING_GUIDE.md`
 - Shared hosting install: `docs/SHARED_HOSTING_INSTALL.md`
 - Commercial readiness report: `docs/COMMERCIAL_READINESS_REPORT_AR.md`
 - Target cutover runbook: `docs/TARGET_SERVER_CUTOVER.md`

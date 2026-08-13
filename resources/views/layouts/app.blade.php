@@ -9,7 +9,7 @@
     <style>
         :root{--ink:#14213d;--teal:#0f766e;--soft:#f7f8fb;--line:#e2e8f0}
         *{box-sizing:border-box} body{margin:0;background:var(--soft);font-family:Inter,Arial,sans-serif;color:#172033}
-        a{color:inherit;text-decoration:none}.layout{display:flex;min-height:100vh}.side{width:280px;background:#fff;border-right:1px solid var(--line);padding:22px;position:fixed;inset:0 auto 0 0}
+        a{color:inherit;text-decoration:none}.layout{display:flex;min-height:100vh}.side{width:280px;background:#fff;border-right:1px solid var(--line);padding:22px;position:fixed;inset:0 auto 0 0;overflow-y:auto}
         .brand{font-weight:800;color:var(--ink);font-size:18px}.tag{font-size:13px;color:#64748b;margin-top:4px}.nav{margin-top:28px;display:grid;gap:6px}.nav a{padding:11px 12px;border-radius:7px;font-weight:650;color:#334155}.nav a:hover{background:#ccfbf1;color:#115e59}
         .main{margin-left:280px;width:calc(100% - 280px)}.top{background:#fff;border-bottom:1px solid var(--line);padding:18px 30px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0}
         .content{padding:28px}.card{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 18px 50px rgba(20,33,61,.08);padding:20px}.grid{display:grid;gap:16px}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -58,6 +58,16 @@
             @endif
             @if(auth()->user()->hasPermission('interview.read'))
             <a href="{{ route('interviews.index') }}">Interviews</a>
+            @endif
+            @if(auth()->user()->hasPermission('assessment.manage'))
+            <a href="{{ route('assessments.index') }}">Assessments</a>
+            @endif
+            @if(auth()->user()->hasPermission('offer.manage'))
+            <a href="{{ route('offers.index') }}">Offers</a>
+            <a href="{{ route('onboarding.index') }}">Onboarding</a>
+            @endif
+            @if(auth()->user()->isSuperAdmin() || (auth()->user()->hasAnyRole(['COMPANY_ADMIN']) && auth()->user()->hasPermission('bias_monitoring.view')))
+            <a href="{{ route('bias-monitoring.index') }}">Bias Monitoring</a>
             @endif
             @if(auth()->user()->hasPermission('salary.manage'))
             <a href="{{ route('salary-benchmarks.index') }}">Salary Benchmarks</a>

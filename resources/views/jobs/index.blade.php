@@ -13,6 +13,9 @@
         <span class="badge">{{ $job->approval_status }}</span>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
             <a class="btn btn-light" href="{{ route('jobs.show', $job) }}">Profile</a>
+            @if(auth()->user()->hasPermission('job.write'))
+                <a class="btn btn-light" href="{{ route('jobs.edit', $job) }}">Edit</a>
+            @endif
             @if(auth()->user()->hasPermission('job.match'))
                 <a class="btn" href="{{ route('rankings.job', $job) }}">AI Ranking</a>
             @endif

@@ -7,6 +7,7 @@ use App\Models\CandidateApplication;
 use App\Models\Job;
 use App\Models\PipelineStageHistory;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use App\Services\TenantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +48,7 @@ class CandidateApplicationController extends Controller
         ]);
     }
 
-    public function store(Request $request, TenantService $tenant, AuditService $audit): RedirectResponse
+    public function store(Request $request, TenantService $tenant, AuditService $audit, NotificationService $notifications): RedirectResponse
     {
         $data = $request->validate([
             'candidate_id' => ['required', 'integer', 'exists:candidates,id'],
@@ -97,10 +98,14 @@ class CandidateApplicationController extends Controller
             'job_id' => $job->id,
         ], $request);
 
+        if ($application->wasRecentlyCreated) {
+            $notifications->applicationReceived($application->load('job', 'candidate', 'company'));
+        }
+
         return redirect()->route('applications.index')->with('status', 'Application added to recruitment pipeline');
     }
 
-    public function updateStage(Request $request, CandidateApplication $application, AuditService $audit): RedirectResponse
+    public function updateStage(Request $request, CandidateApplication $application, AuditService $audit, NotificationService $notifications): RedirectResponse
     {
         $this->authorizeTenant($application);
         $data = $request->validate([
@@ -139,6 +144,10 @@ class CandidateApplicationController extends Controller
             'from_stage' => $fromStage,
             'to_stage' => $data['current_stage'],
         ], $request);
+
+        if ($data['current_stage'] === 'REJECTED' && $fromStage !== 'REJECTED') {
+            $notifications->rejected($application->load('job', 'candidate'));
+        }
 
         return back()->with('status', 'Pipeline stage updated');
     }

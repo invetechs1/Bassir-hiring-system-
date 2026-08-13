@@ -98,6 +98,9 @@
                             <button class="btn btn-light">Update</button>
                         </form>
                     @endif
+                    @if(auth()->user()->hasPermission('offer.manage'))
+                        <a class="btn btn-light" style="margin-top:8px;display:block;text-align:center" href="{{ route('offers.create', $application) }}">Draft Offer</a>
+                    @endif
                 </article>
             @empty
                 <p class="muted">No applications in this stage.</p>

@@ -37,4 +37,14 @@ class CandidateApplication extends Model
     {
         return $this->hasMany(PipelineStageHistory::class);
     }
+
+    public function assessments(): HasMany
+    {
+        return $this->hasMany(CandidateAssessment::class);
+    }
+
+    public function offers(): HasMany
+    {
+        return $this->hasMany(Offer::class);
+    }
 }

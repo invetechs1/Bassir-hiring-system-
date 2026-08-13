@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\AiSearchController;
+use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AutoSourcingController;
+use App\Http\Controllers\BiasMonitoringController;
 use App\Http\Controllers\CandidateApplicationController;
 use App\Http\Controllers\CandidateComparisonController;
 use App\Http\Controllers\CandidateController;
@@ -19,6 +21,13 @@ use App\Http\Controllers\JobController;
 use App\Http\Controllers\JobRankingController;
 use App\Http\Controllers\LocalizationController;
 use App\Http\Controllers\MatchingController;
+use App\Http\Controllers\OfferController;
+use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\Portal\PortalApplicationController;
+use App\Http\Controllers\Portal\PortalAssessmentController;
+use App\Http\Controllers\Portal\PortalAuthController;
+use App\Http\Controllers\Portal\PortalJobController;
+use App\Http\Controllers\Portal\PortalOfferController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalaryBenchmarkController;
 use App\Http\Controllers\SearchAssistantController;
@@ -81,7 +90,7 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
 
     Route::resource('jobs', JobController::class)->only(['index'])->middleware('permission:job.read');
     Route::middleware('permission:job.write')->group(function () {
-        Route::resource('jobs', JobController::class)->only(['create', 'store']);
+        Route::resource('jobs', JobController::class)->only(['create', 'store', 'edit', 'update']);
         Route::post('/jobs/{job}/match', [JobController::class, 'match'])
             ->middleware('permission:job.match')
             ->middleware('throttle:20,1')
@@ -207,6 +216,67 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
         Route::get('/reports/salary-benchmarks.csv', [ReportController::class, 'salaryBenchmarksCsv'])->middleware('throttle:20,1')->name('reports.salary-benchmarks.csv');
         Route::get('/reports/ai-search-success.csv', [ReportController::class, 'aiSearchSuccessCsv'])->middleware('throttle:20,1')->name('reports.ai-search-success.csv');
     });
+
+    Route::middleware('permission:assessment.manage')->group(function () {
+        Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');
+        Route::get('/assessments/create', [AssessmentController::class, 'create'])->name('assessments.create');
+        Route::post('/assessments', [AssessmentController::class, 'store'])->middleware('throttle:20,1')->name('assessments.store');
+        Route::post('/assessments/{assessment}/assign', [AssessmentController::class, 'assign'])->middleware('throttle:30,1')->name('assessments.assign');
+        Route::get('/assessments/results/{candidateAssessment}', [AssessmentController::class, 'show'])->name('assessments.show');
+        Route::post('/assessments/results/{candidateAssessment}/review', [AssessmentController::class, 'review'])->middleware('throttle:30,1')->name('assessments.review');
+    });
+
+    Route::middleware('permission:offer.manage')->group(function () {
+        Route::get('/offers', [OfferController::class, 'index'])->name('offers.index');
+        Route::get('/applications/{application}/offer', [OfferController::class, 'create'])->name('offers.create');
+        Route::post('/applications/{application}/offer', [OfferController::class, 'store'])->middleware('throttle:20,1')->name('offers.store');
+        Route::post('/offers/{offer}/approve', [OfferController::class, 'approve'])
+            ->middleware(['role:SUPER_ADMIN,COMPANY_ADMIN,HR_MANAGER', 'throttle:20,1'])
+            ->name('offers.approve');
+        Route::post('/offers/{offer}/send', [OfferController::class, 'send'])->middleware('throttle:20,1')->name('offers.send');
+    });
+
+    Route::middleware('permission:offer.manage')->group(function () {
+        Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
+        Route::post('/onboarding/{onboardingRecordId}/tasks/{taskId}/complete', [OnboardingController::class, 'completeTask'])
+            ->middleware('throttle:30,1')
+            ->name('onboarding.tasks.complete');
+    });
+
+    Route::middleware(['role:SUPER_ADMIN,COMPANY_ADMIN', 'permission:bias_monitoring.view'])->group(function () {
+        Route::get('/bias-monitoring', [BiasMonitoringController::class, 'index'])->name('bias-monitoring.index');
+    });
+});
+
+// Candidate self-service portal — separate `candidate` auth guard, scoped per company.
+Route::middleware('set_locale')->prefix('careers')->group(function () {
+    Route::get('/{company}', [PortalJobController::class, 'index'])->name('portal.jobs.index');
+    Route::get('/{company}/jobs/{job}', [PortalJobController::class, 'show'])->name('portal.jobs.show');
+
+    Route::middleware('guest:candidate')->group(function () {
+        Route::get('/{company}/register', [PortalAuthController::class, 'showRegister'])->name('portal.register');
+        Route::post('/{company}/register', [PortalAuthController::class, 'register'])->middleware('throttle:10,1')->name('portal.register.post');
+        Route::get('/{company}/login', [PortalAuthController::class, 'showLogin'])->name('portal.login');
+        Route::post('/{company}/login', [PortalAuthController::class, 'login'])->middleware('throttle:10,1')->name('portal.login.post');
+    });
+
+    Route::middleware('auth:candidate')->group(function () {
+        Route::post('/{company}/jobs/{job}/apply', [PortalApplicationController::class, 'apply'])->middleware('throttle:15,1')->name('portal.jobs.apply');
+    });
+});
+
+Route::middleware(['set_locale', 'auth:candidate'])->prefix('portal')->group(function () {
+    Route::post('/logout', [PortalAuthController::class, 'logout'])->name('portal.logout');
+    Route::get('/dashboard', [PortalApplicationController::class, 'index'])->name('portal.dashboard');
+    Route::get('/applications/{application}', [PortalApplicationController::class, 'show'])->name('portal.applications.show');
+
+    Route::get('/offers/{offer}', [PortalOfferController::class, 'show'])->name('portal.offers.show');
+    Route::post('/offers/{offer}/accept', [PortalOfferController::class, 'accept'])->middleware('throttle:10,1')->name('portal.offers.accept');
+    Route::post('/offers/{offer}/decline', [PortalOfferController::class, 'decline'])->middleware('throttle:10,1')->name('portal.offers.decline');
+
+    Route::get('/assessments', [PortalAssessmentController::class, 'index'])->name('portal.assessments.index');
+    Route::get('/assessments/{candidateAssessment}', [PortalAssessmentController::class, 'show'])->name('portal.assessments.show');
+    Route::post('/assessments/{candidateAssessment}/submit', [PortalAssessmentController::class, 'submit'])->middleware('throttle:15,1')->name('portal.assessments.submit');
 });
 
 Route::get('/health', HealthController::class)->name('health');

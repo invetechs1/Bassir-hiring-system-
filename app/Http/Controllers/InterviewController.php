@@ -7,6 +7,7 @@ use App\Models\Interview;
 use App\Models\InterviewFeedback;
 use App\Models\Job;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use App\Services\TenantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class InterviewController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditService $audit, TenantService $tenant): RedirectResponse
+    public function store(Request $request, AuditService $audit, TenantService $tenant, NotificationService $notifications): RedirectResponse
     {
         $data = $request->validate([
             'candidate_id' => ['required', 'exists:candidates,id'],
@@ -54,6 +55,7 @@ class InterviewController extends Controller
         }
         $interview = Interview::create($data);
         $audit->log(Auth::id(), 'INTERVIEW_CREATE', 'interviews', (string) $interview->id, $data, $request);
+        $notifications->interviewInvite($interview->load('candidate', 'job'));
 
         return redirect()->route('interviews.index')->with('status', 'Interview scheduled');
     }

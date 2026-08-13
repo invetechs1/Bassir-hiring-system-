@@ -52,6 +52,9 @@ class DatabaseSeeder extends Seeder
             'users.manage',
             'audit.read',
             'settings.manage',
+            'assessment.manage',
+            'offer.manage',
+            'bias_monitoring.view',
         ])->mapWithKeys(fn ($name) => [$name => Permission::firstOrCreate(['name' => $name], ['description' => $name])]);
 
         $roles['SUPER_ADMIN']->permissions()->sync($permissions->pluck('id')->all());
@@ -64,15 +67,17 @@ class DatabaseSeeder extends Seeder
             'dashboard.view', 'candidate.read', 'candidate.write', 'job.read', 'job.write',
             'job.match', 'ai_search.run', 'ai_search.import', 'interview.read', 'interview.write',
             'interview.feedback', 'salary.manage', 'specialization.manage', 'reports.export',
+            'assessment.manage', 'offer.manage',
         ])->pluck('id')->all());
         $roles['RECRUITER']->permissions()->sync($permissions->only([
             'dashboard.view', 'candidate.read', 'candidate.write', 'job.read', 'job.write',
             'job.match', 'ai_search.run', 'ai_search.import', 'interview.read', 'interview.write',
-            'interview.feedback', 'reports.export',
+            'interview.feedback', 'reports.export', 'assessment.manage', 'offer.manage',
         ])->pluck('id')->all());
         $roles['HIRING_MANAGER']->permissions()->sync($permissions->only([
             'dashboard.view', 'candidate.read', 'candidate.write', 'job.read', 'job.write',
             'job.match', 'interview.read', 'interview.write', 'interview.feedback', 'reports.export',
+            'offer.manage',
         ])->pluck('id')->all());
         $roles['INTERVIEWER']->permissions()->sync($permissions->only([
             'dashboard.view', 'candidate.read', 'job.read', 'interview.read', 'interview.feedback',
