@@ -1,5 +1,28 @@
 # Changelog Fixes
 
+## 2026-08-25 CV Bank with Auto-Filtering by Specialty
+
+- New CV Bank feature (`/cv-bank`) that groups every candidate CV under a
+  specialty folder (Civil Engineer, Mechanical Engineer, Software Engineer,
+  Architect, Accountant, HR, Nurse, etc.) so recruiters can pull, for example,
+  every civil-engineer CV in one place.
+- Added `SpecialtyClassifierService` — a rule-based classifier with EN + AR
+  keywords covering 18 specialties (engineering, healthcare, finance, sales,
+  marketing, legal, design, project management, and more). Runs on every CV
+  upload, sets the candidate's `specialization`, and stores the CV under
+  `storage/app/private/cv-bank/{specialty-slug}/`.
+- Added `CvBankController` with tenant-scoped index (specialty cards with
+  counts) and per-specialty listings with search + CV download.
+- Added a manual reclassify endpoint (permission-gated on `candidate.write`)
+  so recruiters can override the classifier when needed.
+- Added `bassir:cv-bank-reclassify` artisan command to backfill and move CV
+  files for existing candidates (`--dry-run` supported).
+- Added CV Bank nav link (candidate.read gated) with EN/AR labels and RTL
+  layout.
+- 8 new feature tests covering EN + AR classification, empty-input fallback,
+  the index page, per-specialty listing, search, and reclassify (suite
+  72 → 80).
+
 ## 2026-07-21 Continuous Integration
 
 - Added a GitHub Actions CI workflow (`.github/workflows/ci.yml`) that runs on

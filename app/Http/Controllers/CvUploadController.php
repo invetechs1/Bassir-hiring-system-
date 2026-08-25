@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Services\CvParserService;
 use App\Services\DuplicateDetectionService;
 use App\Services\FileSecurityService;
+use App\Services\SpecialtyClassifierService;
 use App\Services\TenantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,8 @@ class CvUploadController extends Controller
         AuditService $audit,
         FileSecurityService $fileSecurity,
         TenantService $tenant,
-        AiCandidateRankingService $ranking
+        AiCandidateRankingService $ranking,
+        SpecialtyClassifierService $classifier
     ): RedirectResponse
     {
         $request->validate([
@@ -51,21 +53,17 @@ class CvUploadController extends Controller
             return back()->withErrors(['cv' => $e->getMessage()]);
         }
 
-        $path = $file->store('private/cvs');
+        try {
+            $parsed = $parser->parse($file);
+        } catch (Throwable) {
+            return back()->withErrors(['cv' => 'Unable to parse this CV file. Please upload another file or use CSV import.']);
+        }
+        $classification = $classifier->classify($parsed);
+        $path = $file->store('private/cv-bank/'.$classification['slug']);
         $malwareScanStatus = $fileSecurity->malwareScan(Storage::path($path));
         if ($malwareScanStatus === 'FAILED') {
             Storage::disk('local')->delete($path);
             return back()->withErrors(['cv' => 'The uploaded CV did not pass the configured file security scan.']);
-        }
-
-        try {
-            $parsed = $parser->parse($file);
-        } catch (Throwable) {
-            if (Storage::disk('local')->exists($path)) {
-                Storage::disk('local')->delete($path);
-            }
-
-            return back()->withErrors(['cv' => 'Unable to parse this CV file. Please upload another file or use CSV import.']);
         }
         $candidateData = [
             'full_name' => $parsed['name'] ?: 'Imported Candidate',
@@ -73,7 +71,7 @@ class CvUploadController extends Controller
             'phone' => $parsed['phone'],
             'title' => $parsed['current_job_title'] ?? $parsed['experience'][0] ?? 'Candidate',
             'current_company' => $parsed['current_company'] ?? null,
-            'specialization' => 'Unclassified',
+            'specialization' => $classification['name'],
             'industry' => $parsed['industry'] ?? null,
             'country' => $parsed['location'],
             'city' => $parsed['city'] ?? null,

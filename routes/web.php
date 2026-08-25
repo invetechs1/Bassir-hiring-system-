@@ -12,6 +12,7 @@ use App\Http\Controllers\CandidateController;
 use App\Http\Controllers\CandidateDocumentController;
 use App\Http\Controllers\CandidateJobMatchController;
 use App\Http\Controllers\CandidateImportController;
+use App\Http\Controllers\CvBankController;
 use App\Http\Controllers\CvUploadController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
@@ -74,6 +75,17 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
     Route::get('/candidate-comparison', [CandidateComparisonController::class, 'index'])
         ->middleware('permission:candidate.read')
         ->name('comparisons.candidates');
+
+    Route::get('/cv-bank', [CvBankController::class, 'index'])
+        ->middleware('permission:candidate.read')
+        ->name('cv-bank.index');
+    Route::get('/cv-bank/{slug}', [CvBankController::class, 'show'])
+        ->middleware('permission:candidate.read')
+        ->where('slug', '[a-z0-9\-]+')
+        ->name('cv-bank.show');
+    Route::post('/cv-bank/candidates/{candidate}/reclassify', [CvBankController::class, 'reclassify'])
+        ->middleware(['permission:candidate.write', 'throttle:30,1'])
+        ->name('cv-bank.reclassify');
 
     Route::get('/search-assistant', [SearchAssistantController::class, 'index'])
         ->middleware('permission:candidate.read')
