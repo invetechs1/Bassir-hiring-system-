@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Throwable;
 
 class JobController extends Controller
 {
@@ -148,22 +149,28 @@ class JobController extends Controller
                 continue;
             }
 
-            $ai = $insights->candidateInsight(
-                [
-                    'full_name' => $candidate->full_name,
-                    'title' => $candidate->title,
-                    'specialization' => $candidate->specialization,
-                    'skills' => $candidate->skills->pluck('name')->all(),
-                    'years_experience' => $candidate->years_experience,
-                    'expected_salary' => $candidate->expected_salary,
-                    'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
-                ],
-                [
-                    'title' => $job->title,
-                    'required_skills' => $job->requiredSkills->pluck('name')->all(),
-                    'location' => $job->location,
-                ]
-            );
+            try {
+                $ai = $insights->candidateInsight(
+                    [
+                        'full_name' => $candidate->full_name,
+                        'title' => $candidate->title,
+                        'specialization' => $candidate->specialization,
+                        'skills' => $candidate->skills->pluck('name')->all(),
+                        'years_experience' => $candidate->years_experience,
+                        'expected_salary' => $candidate->expected_salary,
+                        'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
+                    ],
+                    [
+                        'title' => $job->title,
+                        'required_skills' => $job->requiredSkills->pluck('name')->all(),
+                        'location' => $job->location,
+                    ]
+                );
+            } catch (Throwable) {
+                // AI enrichment is an accelerator on top of the base score, which is already
+                // saved — one candidate's AI insight failing must not break matching for the rest.
+                continue;
+            }
 
             $salary = $salaryEstimator->estimate([
                 'years_experience' => $candidate->years_experience,

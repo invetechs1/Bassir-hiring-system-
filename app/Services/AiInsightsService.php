@@ -53,19 +53,37 @@ class AiInsightsService
 
         return [
             'summary' => (string) ($decoded['summary'] ?? $fallback['summary']),
-            'strength_points' => array_values(array_filter(array_map('strval', $decoded['strength_points'] ?? $fallback['strength_points']))),
-            'weakness_points' => array_values(array_filter(array_map('strval', $decoded['weakness_points'] ?? $fallback['weakness_points']))),
-            'best_roles' => array_values(array_filter(array_map('strval', $decoded['best_roles'] ?? $fallback['best_roles']))),
+            'strength_points' => $this->toStringList($decoded['strength_points'] ?? $fallback['strength_points']),
+            'weakness_points' => $this->toStringList($decoded['weakness_points'] ?? $fallback['weakness_points']),
+            'best_roles' => $this->toStringList($decoded['best_roles'] ?? $fallback['best_roles']),
             'expected_salary' => (int) ($decoded['expected_salary'] ?? $fallback['expected_salary']),
             'hiring_recommendation' => (string) ($decoded['hiring_recommendation'] ?? $fallback['hiring_recommendation']),
-            'interview_questions' => array_values(array_filter(array_map('strval', $decoded['interview_questions'] ?? $fallback['interview_questions']))),
-            'risk_notes' => array_values(array_filter(array_map('strval', $decoded['risk_notes'] ?? $fallback['risk_notes']))),
-            'missing_skills' => array_values(array_filter(array_map('strval', $decoded['missing_skills'] ?? $fallback['missing_skills']))),
+            'interview_questions' => $this->toStringList($decoded['interview_questions'] ?? $fallback['interview_questions']),
+            'risk_notes' => $this->toStringList($decoded['risk_notes'] ?? $fallback['risk_notes']),
+            'missing_skills' => $this->toStringList($decoded['missing_skills'] ?? $fallback['missing_skills']),
             'matching_percentage' => max(0, min(100, (int) ($decoded['matching_percentage'] ?? $fallback['matching_percentage']))),
             'confidence' => max(0, min(100, (int) ($decoded['confidence'] ?? $fallback['confidence']))),
             'human_review_required' => true,
             'ai_disclaimer' => $fallback['ai_disclaimer'],
         ];
+    }
+
+    /**
+     * The model is asked to return these fields as JSON arrays but doesn't always comply —
+     * it sometimes answers with a single comma/semicolon-separated string instead. Coerce
+     * either shape into a clean string list rather than letting array_map() crash on a
+     * non-array value.
+     */
+    private function toStringList(mixed $value): array
+    {
+        if (is_array($value)) {
+            return array_values(array_filter(array_map('strval', $value), fn ($v) => $v !== ''));
+        }
+        if (is_string($value) && trim($value) !== '') {
+            return array_values(array_filter(array_map('trim', preg_split('/[,;\n]+/', $value)), fn ($v) => $v !== ''));
+        }
+
+        return [];
     }
 
     private function prompt(array $candidate, array $jobContext): string

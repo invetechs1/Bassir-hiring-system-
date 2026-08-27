@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class AiSearchController extends Controller
 {
@@ -140,16 +141,21 @@ class AiSearchController extends Controller
             return $candidate;
         });
 
-        $ai = $insights->candidateInsight([
-            'full_name' => $candidate->full_name,
-            'title' => $candidate->title,
-            'specialization' => $candidate->specialization,
-            'skills' => $candidate->skills()->pluck('name')->all(),
-            'years_experience' => $candidate->years_experience,
-            'expected_salary' => $candidate->expected_salary,
-            'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
-        ]);
-        $candidate->update(['ai_summary' => $ai['summary']]);
+        try {
+            $ai = $insights->candidateInsight([
+                'full_name' => $candidate->full_name,
+                'title' => $candidate->title,
+                'specialization' => $candidate->specialization,
+                'skills' => $candidate->skills()->pluck('name')->all(),
+                'years_experience' => $candidate->years_experience,
+                'expected_salary' => $candidate->expected_salary,
+                'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
+            ]);
+            $candidate->update(['ai_summary' => $ai['summary']]);
+        } catch (Throwable) {
+            // AI enrichment is a bonus on top of the candidate record already saved above;
+            // the import must still succeed if the AI provider misbehaves.
+        }
 
         DB::transaction(function () use ($result, $candidate) {
             $result->update(['candidate_id' => $candidate->id]);
