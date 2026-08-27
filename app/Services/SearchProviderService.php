@@ -63,7 +63,102 @@ class SearchProviderService
             }
         }
 
-        return array_slice(array_values($unique), 0, $quantity);
+        $ranked = array_values($unique);
+        usort($ranked, fn ($a, $b) => $this->relevanceRank($a['match_quality']) <=> $this->relevanceRank($b['match_quality']));
+
+        return array_slice($ranked, 0, $quantity);
+    }
+
+    /** Lower rank sorts first: real candidates before uncertain results before non-candidate noise. */
+    private function relevanceRank(string $matchQuality): int
+    {
+        return match ($matchQuality) {
+            'likely_candidate' => 0,
+            'uncertain' => 1,
+            default => 2,
+        };
+    }
+
+    /** Job boards and recruiting sites (whole domain): a hit here is a posting, never a candidate's own CV. */
+    private const JOB_BOARD_HOSTS = [
+        'indeed.com', 'bayt.com', 'naukrigulf.com', 'gulftalent.com', 'monstergulf.com', 'akhtaboot.com',
+        'tanqeeb.com', 'dubizzle.com', 'laimoon.com', 'glassdoor.com', 'wellfound.com', 'foundit.com',
+        'careerjet.com',
+    ];
+
+    /**
+     * Heuristic pass over the URL/title/snippet to separate real candidate CVs from
+     * job postings, recruiting ads, academic papers, and social media posts —
+     * search APIs return all of these for the same keywords, only the first is
+     * an actual candidate. Domain checks run first since a job board URL is a much
+     * more reliable signal than any keyword in the snippet text.
+     */
+    private function classifyRelevance(string $title, string $url, string $snippet): string
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+
+        // linkedin.com/in/... is a personal profile page — a strong candidate signal,
+        // not a job posting. linkedin.com/jobs/... is the opposite. Check path, not just host.
+        if (str_contains($host, 'linkedin.com')) {
+            if (str_starts_with($path, '/jobs')) {
+                return 'likely_job_posting';
+            }
+            if (str_starts_with($path, '/in/')) {
+                return 'likely_candidate';
+            }
+        }
+        foreach (self::JOB_BOARD_HOSTS as $jobBoard) {
+            if ($host !== '' && str_contains($host, $jobBoard)) {
+                return 'likely_job_posting';
+            }
+        }
+        // University/academic-institution domains host faculty bios, not job-seeker CVs.
+        if ($host !== '' && (str_ends_with($host, '.edu') || str_contains($host, '.edu.') || str_contains($host, '.ac.'))) {
+            return 'likely_other';
+        }
+
+        $text = strtolower($title.' '.$snippet);
+
+        $jobPostingSignals = [
+            'hiring', 'vacancy', 'vacancies', 'apply now', 'job description', 'job opening', 'job openings',
+            'job opportunity', 'we are looking for', "we're hiring", 'urgently required', 'urgently require',
+            'days ago', 'send cv to', 'send your cv', 'submit your cv', 'phone inquiries', 'the selected candidate',
+            'career opportunity', 'required', 'openings', 'open position', 'open positions', 'visa provided',
+            'immediate joiner', 'immediate joining', 'walk-in interview', 'multiple positions',
+            'positions available', 'contract duration', 'jobs in saudi arabia', 'upload your cv', 'careerjet',
+        ];
+        // Academic/faculty content ("X is a civil engineer and Professor of...") reads a lot like a real
+        // CV summary but isn't a job-seeking candidate — check this before the candidate signals below.
+        $otherSignals = [
+            'case study', 'journal', 'conference proceedings', 'research paper', 'funded research',
+            'peer-reviewed', 'thesis', 'dissertation', 'reel by', 'read caption for more', 'university of',
+            'professor', 'instructor of', 'program report',
+        ];
+        $candidateSignals = [
+            'resume of', 'cv of', 'curriculum vitae for', 'this document contains a resume for',
+            'this document is a cv for', 'resume overview', 'is a jordanian civil engineer',
+            'is an egyptian civil engineer', 'is a sudanese civil engineer', 'years of experience in',
+            'currently working in', 'open to work', 'open to opportunities',
+        ];
+
+        foreach ($jobPostingSignals as $signal) {
+            if (str_contains($text, $signal)) {
+                return 'likely_job_posting';
+            }
+        }
+        foreach ($otherSignals as $signal) {
+            if (str_contains($text, $signal)) {
+                return 'likely_other';
+            }
+        }
+        foreach ($candidateSignals as $signal) {
+            if (str_contains($text, $signal)) {
+                return 'likely_candidate';
+            }
+        }
+
+        return 'uncertain';
     }
 
     private function googleSearch(string $query, int $limit): array
@@ -216,6 +311,7 @@ class SearchProviderService
             'compliance_note' => $isLinkedIn
                 ? 'LinkedIn is official/manual import only. Do not scrape protected profiles.'
                 : 'Legal API/public result. Verify source terms, robots policy, and candidate consent before outreach.',
+            'match_quality' => $this->classifyRelevance($title, $url, $snippet),
         ];
     }
 

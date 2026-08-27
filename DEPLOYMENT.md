@@ -22,6 +22,17 @@ server:
 This does all five steps below in order. Everything past this point explains
 what that script does, so you can run the steps by hand if needed.
 
+## Manual deploy (image/tar already built)
+
+When the image has already been built and saved to
+`bassir-laravel-shared-hosting-app.tar` in the project root (steps 1–3 below),
+these are the two commands to ship and deploy it by hand:
+
+```bash
+scp bassir-laravel-shared-hosting-app.tar root@13.140.138.252:/root/bassir-laravel-shared-hosting/
+ssh root@13.140.138.252 "cd /root/bassir-laravel-shared-hosting && bash server-deploy-image.sh"
+```
+
 ## Step by step
 
 ### 1. Remove the old local image

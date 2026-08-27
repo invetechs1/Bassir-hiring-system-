@@ -17,7 +17,7 @@ class CvParserService
         $text = is_string($file)
             ? ((file_exists($file) ? file_get_contents($file) : '') ?: '')
             : $this->extractText($file);
-        $text = (string) $text;
+        $text = $this->sanitizeUtf8((string) $text);
 
         preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $text, $email);
         preg_match('/(\+?\d[\d\s().-]{7,}\d)/', $text, $phone);
@@ -66,6 +66,21 @@ class CvParserService
             'certification_entries' => $this->certificationEntries($lines->all()),
             'raw_text' => $text,
         ];
+    }
+
+    /**
+     * PDF/Word extraction can produce invalid UTF-8 byte sequences from a corrupted,
+     * scanned, or oddly-encoded source file — MySQL's strict mode rejects those outright
+     * (SQLSTATE 22007) rather than storing them, crashing whatever saves this text.
+     */
+    private function sanitizeUtf8(string $text): string
+    {
+        if ($text === '' || mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+        $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+
+        return $clean !== false ? $clean : '';
     }
 
     private function extractText(UploadedFile $file): string
