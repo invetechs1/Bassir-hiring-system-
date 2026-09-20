@@ -38,7 +38,7 @@ class SourcingAgentTest extends TestCase
                 'name' => 'Sarah — Civil Engineering Recruiter',
                 'persona' => 'senior_technical',
                 'avatar_emoji' => '🧑‍💼',
-                'specialty_slug' => 'civil-engineer',
+                'specialty_slug' => 'civil-engineers',
                 'countries_csv' => 'Saudi Arabia',
                 'cities_csv' => 'Riyadh, Jeddah',
                 'must_csv' => 'AutoCAD, Revit',
@@ -55,8 +55,8 @@ class SourcingAgentTest extends TestCase
 
         $this->assertDatabaseHas('sourcing_agents', [
             'name' => 'Sarah — Civil Engineering Recruiter',
-            'specialty_slug' => 'civil-engineer',
-            'specialty_name' => 'Civil Engineer',
+            'specialty_slug' => 'civil-engineers',
+            'specialty_name' => 'Civil Engineers',
         ]);
     }
 
@@ -81,8 +81,8 @@ class SourcingAgentTest extends TestCase
             'name' => 'Test Agent',
             'persona' => 'senior_technical',
             'avatar_emoji' => '🧑‍💼',
-            'specialty_slug' => 'civil-engineer',
-            'specialty_name' => 'Civil Engineer',
+            'specialty_slug' => 'civil-engineers',
+            'specialty_name' => 'Civil Engineers',
             'countries' => ['Saudi Arabia'],
             'cities' => ['Riyadh'],
             'must_have_skills' => ['AutoCAD', 'Revit'],
@@ -116,8 +116,8 @@ class SourcingAgentTest extends TestCase
             'name' => 'Strict Agent',
             'persona' => 'executive_headhunter',
             'avatar_emoji' => '🎯',
-            'specialty_slug' => 'civil-engineer',
-            'specialty_name' => 'Civil Engineer',
+            'specialty_slug' => 'civil-engineers',
+            'specialty_name' => 'Civil Engineers',
             'countries' => ['Saudi Arabia'],
             'cities' => ['Riyadh'],
             'must_have_skills' => ['AutoCAD', 'Revit', 'ETABS'],
@@ -150,8 +150,8 @@ class SourcingAgentTest extends TestCase
             'name' => 'Scheduled Agent',
             'persona' => 'volume_recruiter',
             'avatar_emoji' => '📥',
-            'specialty_slug' => 'software-engineer',
-            'specialty_name' => 'Software Engineer',
+            'specialty_slug' => 'software-developers',
+            'specialty_name' => 'Software Developers',
             'must_have_skills' => [],
             'min_years' => 0, 'max_years' => 30, 'min_score' => 40,
             'quantity_per_run' => 10, 'frequency' => 'manual', 'is_active' => true,
