@@ -136,6 +136,13 @@ class SourcingAgentTest extends TestCase
         $this->assertLessThan(50, $score['total']);
     }
 
+    public function test_agents_run_command_is_a_noop_with_no_due_agents(): void
+    {
+        $this->artisan('bassir:agents-run')
+            ->expectsOutputToContain('Ran 0 agent(s).')
+            ->assertExitCode(0);
+    }
+
     public function test_is_due_respects_frequency_and_next_run_at(): void
     {
         $agent = SourcingAgent::create([
