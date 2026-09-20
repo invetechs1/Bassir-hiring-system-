@@ -36,11 +36,28 @@
             <strong>Nothing is added to your candidate database automatically</strong> — importing is always a manual, per-result decision.
         </p>
     </div>
-    <table><thead><tr><th>Source</th><th>Result</th><th>File Type</th><th>Compliance</th><th style="min-width:230px">Import as candidate</th></tr></thead><tbody>
+    <table><thead><tr><th>Source</th><th>Result</th><th>Match</th><th>File Type</th><th>Compliance</th><th style="min-width:230px">Import as candidate</th></tr></thead><tbody>
     @forelse($results as $result)
+        @php($quality = $result['match_quality'] ?? 'uncertain')
         <tr>
             <td>{{ $result['source'] }}</td>
-            <td><a href="{{ $result['url'] }}" target="_blank">{{ $result['title'] }}</a><br><span class="muted">{{ $result['snippet'] }}</span></td>
+            <td>
+                @if(!empty($result['candidate_name']))
+                    <strong>{{ $result['candidate_name'] }}</strong><br>
+                @endif
+                <a href="{{ $result['url'] }}" target="_blank">{{ $result['title'] }}</a><br><span class="muted">{{ $result['snippet'] }}</span>
+            </td>
+            <td>
+                @if($quality === 'likely_candidate')
+                    <span class="badge" style="background:#dcfce7;color:#166534">Likely candidate</span>
+                @elseif($quality === 'likely_job_posting')
+                    <span class="badge" style="background:#fee2e2;color:#991b1b">Likely job posting</span>
+                @elseif($quality === 'likely_other')
+                    <span class="badge" style="background:#e0e7ff;color:#3730a3">Not a CV</span>
+                @else
+                    <span class="badge" style="background:#f1f5f9;color:#475569">Uncertain</span>
+                @endif
+            </td>
             <td>{{ $result['file_type'] }}</td>
             <td>
                 @if($result['compliance_status'] === 'allowed')
@@ -78,7 +95,7 @@
             </td>
         </tr>
     @empty
-        <tr><td colspan="5" class="muted" style="padding:20px">No results were returned for this search. Try broadening the job title, specialization, or removing some skill filters.</td></tr>
+        <tr><td colspan="6" class="muted" style="padding:20px">No results were returned for this search. Try broadening the job title, specialization, or removing some skill filters.</td></tr>
     @endforelse
     </tbody></table>
 </section>
@@ -100,6 +117,12 @@
 </section>
 <section class="card" style="margin-top:18px">
     <h2>Search History</h2>
-    @foreach($history as $job)<p>{{ $job->created_at }} · {{ $job->status }}</p>@endforeach
+    @forelse($history as $job)
+        <p><a href="{{ route('ai-search.show', $job) }}">{{ $job->created_at }} · {{ $job->status }}</a>
+        @if(isset($searchJob) && $searchJob->id === $job->id) <span class="muted">(viewing)</span> @endif
+        </p>
+    @empty
+        <p class="muted">No searches yet.</p>
+    @endforelse
 </section>
 @endsection

@@ -13,199 +13,285 @@ class SpecialtyClassifierService
      *   name_ar: Arabic label
      *   keywords: array of case-insensitive words / phrases (EN + AR) that vote for this specialty.
      *
-     * Order matters only as a tie-breaker (first defined wins on equal scores).
-     * Add or reorder specialties freely; the classifier picks the highest keyword-hit score.
+     * These names must match the platform's actual Specialization taxonomy (see
+     * DatabaseSeeder / the Specializations admin page) exactly — CV Bank groups candidates by
+     * their `specialization` field, so a classifier name that doesn't exist anywhere else in
+     * the app means every candidate classified into it silently lands in "Unclassified" on the
+     * CV Bank page instead. Order matters only as a tie-breaker (first defined wins on equal
+     * scores). Add or reorder specialties freely; the classifier picks the highest keyword-hit
+     * score.
      */
     private const SPECIALTIES = [
         [
-            'slug' => 'civil-engineer',
-            'name' => 'Civil Engineer',
-            'name_ar' => 'مهندس مدني',
+            'slug' => 'civil-engineers',
+            'name' => 'Civil Engineers',
+            'name_ar' => 'مهندسون مدنيون',
             'keywords' => [
-                'civil engineer', 'civil engineering', 'structural engineer', 'site engineer',
-                'road engineer', 'highway engineer', 'geotechnical', 'reinforced concrete',
-                'concrete design', 'quantity surveyor', 'construction manager',
-                'مهندس مدني', 'هندسة مدنية', 'مهندس إنشائي', 'مهندس موقع', 'مسّاح كميات',
-                'ETABS', 'SAP2000', 'STAAD', 'Primavera P6',
+                'civil engineer', 'civil engineering', 'concrete design', 'reinforced concrete',
+                'مهندس مدني', 'هندسة مدنية',
+                'ETABS', 'SAP2000', 'STAAD',
             ],
         ],
         [
-            'slug' => 'mechanical-engineer',
-            'name' => 'Mechanical Engineer',
-            'name_ar' => 'مهندس ميكانيكي',
+            'slug' => 'structural-engineers',
+            'name' => 'Structural Engineers',
+            'name_ar' => 'مهندسون إنشائيون',
             'keywords' => [
-                'mechanical engineer', 'mechanical engineering', 'HVAC engineer', 'MEP engineer',
-                'plumbing engineer', 'piping engineer', 'thermodynamics', 'refrigeration',
-                'مهندس ميكانيكي', 'هندسة ميكانيكية', 'تكييف', 'ميكانيكا',
-                'SolidWorks', 'AutoCAD Mechanical', 'CATIA',
+                'structural engineer', 'structural engineering', 'structural design', 'structural analysis',
+                'مهندس إنشائي', 'هندسة إنشائية',
+                'ETABS', 'SAP2000', 'STAAD Pro', 'SAFE',
             ],
         ],
         [
-            'slug' => 'electrical-engineer',
-            'name' => 'Electrical Engineer',
-            'name_ar' => 'مهندس كهربائي',
+            'slug' => 'architects',
+            'name' => 'Architects',
+            'name_ar' => 'مهندسون معماريون',
+            'keywords' => [
+                'architect', 'architecture', 'architectural design', 'urban planner',
+                'مهندس معماري', 'عمارة',
+                'Revit', 'SketchUp', 'Rhino', 'Lumion', '3ds Max',
+            ],
+        ],
+        [
+            'slug' => 'electrical-engineers',
+            'name' => 'Electrical Engineers',
+            'name_ar' => 'مهندسون كهربائيون',
             'keywords' => [
                 'electrical engineer', 'electrical engineering', 'power systems',
-                'high voltage', 'low voltage', 'substation', 'PLC', 'SCADA',
+                'high voltage', 'low voltage', 'substation',
                 'مهندس كهرباء', 'هندسة كهربائية', 'مهندس كهربائي',
                 'ETAP', 'DIgSILENT',
             ],
         ],
         [
-            'slug' => 'architect',
-            'name' => 'Architect',
-            'name_ar' => 'مهندس معماري',
+            'slug' => 'mechanical-engineers',
+            'name' => 'Mechanical Engineers',
+            'name_ar' => 'مهندسون ميكانيكيون',
             'keywords' => [
-                'architect', 'architecture', 'architectural design', 'urban planner',
-                'interior designer', 'BIM Manager', 'مهندس معماري', 'عمارة', 'تصميم داخلي',
-                'Revit', 'SketchUp', 'Rhino', 'Lumion', '3ds Max',
+                'mechanical engineer', 'mechanical engineering', 'thermodynamics',
+                'مهندس ميكانيكي', 'هندسة ميكانيكية', 'ميكانيكا',
+                'SolidWorks', 'AutoCAD Mechanical', 'CATIA',
             ],
         ],
         [
-            'slug' => 'software-engineer',
-            'name' => 'Software Engineer',
-            'name_ar' => 'مهندس برمجيات',
+            'slug' => 'mep-engineers',
+            'name' => 'MEP Engineers',
+            'name_ar' => 'مهندسو الكهروميكانيك',
             'keywords' => [
-                'software engineer', 'software developer', 'full stack', 'backend developer',
+                'MEP engineer', 'MEP coordinator', 'HVAC engineer', 'plumbing engineer', 'piping engineer',
+                'مهندس كهروميكانيك', 'تكييف',
+                'Hap', 'Revit MEP',
+            ],
+        ],
+        [
+            'slug' => 'interior-designers',
+            'name' => 'Interior Designers',
+            'name_ar' => 'مصممون داخليون',
+            'keywords' => [
+                'interior designer', 'interior design', 'interior architect',
+                'مصمم داخلي', 'تصميم داخلي',
+                '3ds Max', 'Lumion', 'SketchUp',
+            ],
+        ],
+        [
+            'slug' => 'quantity-surveyors',
+            'name' => 'Quantity Surveyors',
+            'name_ar' => 'مساحو الكميات',
+            'keywords' => [
+                'quantity surveyor', 'QS engineer', 'cost estimator', 'cost engineer', 'BOQ',
+                'bill of quantities', 'contracts management',
+                'مسّاح كميات', 'مهندس تكاليف',
+                'CostX', 'Candy',
+            ],
+        ],
+        [
+            'slug' => 'planning-engineers',
+            'name' => 'Planning Engineers',
+            'name_ar' => 'مهندسو التخطيط',
+            'keywords' => [
+                'planning engineer', 'project planner', 'scheduling engineer', 'project controls',
+                'مهندس تخطيط', 'مخطط مشاريع',
+                'Primavera P6', 'Primavera', 'MS Project',
+            ],
+        ],
+        [
+            'slug' => 'project-managers',
+            'name' => 'Project Managers',
+            'name_ar' => 'مديرو المشاريع',
+            'keywords' => [
+                'project manager', 'programme manager', 'construction manager', 'PMO',
+                'مدير مشروع', 'إدارة مشاريع',
+                'PMP', 'PRINCE2',
+            ],
+        ],
+        [
+            'slug' => 'site-engineers',
+            'name' => 'Site Engineers',
+            'name_ar' => 'مهندسو الموقع',
+            'keywords' => [
+                'site engineer', 'site supervisor', 'field engineer', 'construction supervisor',
+                'مهندس موقع', 'مشرف موقع',
+            ],
+        ],
+        [
+            'slug' => 'hse-engineers',
+            'name' => 'HSE Engineers',
+            'name_ar' => 'مهندسو السلامة والصحة والبيئة',
+            'keywords' => [
+                'HSE engineer', 'HSE officer', 'health safety environment', 'safety engineer',
+                'safety officer', 'NEBOSH', 'OSHA',
+                'مهندس سلامة', 'أخصائي السلامة',
+            ],
+        ],
+        [
+            'slug' => 'qaqc-engineers',
+            'name' => 'QA/QC Engineers',
+            'name_ar' => 'مهندسو ضمان وجودة الجودة',
+            'keywords' => [
+                'QA/QC engineer', 'quality engineer', 'quality assurance', 'quality control',
+                'inspection engineer', 'ISO 9001',
+                'مهندس جودة', 'ضبط الجودة',
+            ],
+        ],
+        [
+            'slug' => 'bim-engineers',
+            'name' => 'BIM Engineers',
+            'name_ar' => 'مهندسو نمذجة معلومات البناء',
+            'keywords' => [
+                'BIM engineer', 'BIM coordinator', 'BIM manager', 'BIM modeler', 'clash detection',
+                'مهندس BIM', 'نمذجة معلومات البناء',
+                'Revit', 'Navisworks', 'BIM 360',
+            ],
+        ],
+        [
+            'slug' => 'infrastructure-engineers',
+            'name' => 'Infrastructure Engineers',
+            'name_ar' => 'مهندسو البنية التحتية',
+            'keywords' => [
+                'infrastructure engineer', 'utilities engineer', 'infrastructure design',
+                'مهندس بنية تحتية',
+            ],
+        ],
+        [
+            'slug' => 'roads-engineers',
+            'name' => 'Roads Engineers',
+            'name_ar' => 'مهندسو الطرق',
+            'keywords' => [
+                'roads engineer', 'road engineer', 'highway engineer', 'highway design', 'pavement design',
+                'مهندس طرق', 'هندسة طرق',
+            ],
+        ],
+        [
+            'slug' => 'geotechnical-engineers',
+            'name' => 'Geotechnical Engineers',
+            'name_ar' => 'مهندسو الجيوتقنية',
+            'keywords' => [
+                'geotechnical engineer', 'geotechnical engineering', 'geotechnical', 'soil investigation',
+                'foundation engineering', 'مهندس جيوتقني', 'هندسة جيوتقنية',
+            ],
+        ],
+        [
+            'slug' => 'facade-engineers',
+            'name' => 'Facade Engineers',
+            'name_ar' => 'مهندسو الواجهات',
+            'keywords' => [
+                'facade engineer', 'facade design', 'curtain wall engineer', 'cladding engineer',
+                'مهندس واجهات',
+            ],
+        ],
+        [
+            'slug' => 'fire-fighting-engineers',
+            'name' => 'Fire Fighting Engineers',
+            'name_ar' => 'مهندسو مكافحة الحريق',
+            'keywords' => [
+                'fire fighting engineer', 'fire protection engineer', 'fire alarm engineer',
+                'fire suppression', 'NFPA',
+                'مهندس مكافحة حريق', 'مكافحة الحرائق',
+            ],
+        ],
+        [
+            'slug' => 'low-current-engineers',
+            'name' => 'Low Current Engineers',
+            'name_ar' => 'مهندسو التيار المنخفض',
+            'keywords' => [
+                'low current engineer', 'ELV engineer', 'extra low voltage', 'CCTV engineer',
+                'access control engineer', 'BMS engineer',
+                'مهندس تيار منخفض',
+            ],
+        ],
+        [
+            'slug' => 'software-developers',
+            'name' => 'Software Developers',
+            'name_ar' => 'مطورو البرمجيات',
+            'keywords' => [
+                'software developer', 'software engineer', 'full stack', 'backend developer',
                 'frontend developer', 'web developer', 'mobile developer',
-                'مهندس برمجيات', 'مطور برمجيات', 'مطور ويب',
+                'مطور برمجيات', 'مطور ويب',
                 'React', 'Vue', 'Angular', 'Laravel', 'Django', 'Node.js', 'Python', 'Java',
                 'PHP', 'Kotlin', 'Swift', 'Flutter', 'REST API', 'GraphQL',
             ],
         ],
         [
-            'slug' => 'data-scientist',
-            'name' => 'Data Scientist',
-            'name_ar' => 'عالم بيانات',
+            'slug' => 'ui-ux-designers',
+            'name' => 'UI/UX Designers',
+            'name_ar' => 'مصممو واجهات وتجربة المستخدم',
             'keywords' => [
-                'data scientist', 'data science', 'machine learning', 'deep learning',
-                'data engineer', 'AI engineer', 'data analyst',
-                'عالم بيانات', 'محلل بيانات', 'ذكاء اصطناعي', 'تعلم آلي',
-                'TensorFlow', 'PyTorch', 'scikit-learn', 'Pandas', 'NumPy',
-                'Power BI', 'Tableau', 'Spark',
+                'UI designer', 'UX designer', 'UI/UX', 'product designer', 'interaction designer',
+                'user research', 'wireframing',
+                'مصمم واجهات', 'تجربة المستخدم',
+                'Figma', 'Adobe XD', 'Sketch',
             ],
         ],
         [
-            'slug' => 'devops-engineer',
-            'name' => 'DevOps / Cloud Engineer',
-            'name_ar' => 'مهندس ديفوبس/سحابة',
+            'slug' => 'data-analysts',
+            'name' => 'Data Analysts',
+            'name_ar' => 'محللو البيانات',
             'keywords' => [
-                'devops', 'DevOps engineer', 'SRE', 'site reliability', 'cloud engineer',
-                'platform engineer', 'infrastructure engineer',
-                'مهندس ديفوبس', 'مهندس سحابة',
-                'Kubernetes', 'Docker', 'AWS', 'Azure', 'GCP', 'Terraform', 'Ansible', 'Jenkins',
+                'data analyst', 'business intelligence', 'BI analyst', 'data visualization',
+                'reporting analyst',
+                'محلل بيانات',
+                'Power BI', 'Tableau', 'SQL', 'Excel', 'Python pandas',
             ],
         ],
         [
-            'slug' => 'network-engineer',
-            'name' => 'Network / Security Engineer',
-            'name_ar' => 'مهندس شبكات/أمن',
+            'slug' => 'accountants',
+            'name' => 'Accountants',
+            'name_ar' => 'محاسبون',
             'keywords' => [
-                'network engineer', 'network administrator', 'security engineer',
-                'cybersecurity', 'information security', 'SOC analyst',
-                'مهندس شبكات', 'أمن سيبراني', 'أمن المعلومات',
-                'CCNA', 'CCNP', 'CISSP', 'firewall', 'Palo Alto', 'Fortinet',
+                'accountant', 'accounting', 'financial analyst', 'auditor', 'audit',
+                'bookkeeper', 'controller', 'finance manager',
+                'محاسب', 'محاسبة', 'مدقق', 'مالية',
+                'IFRS', 'GAAP', 'SAP FICO', 'QuickBooks', 'Xero', 'ZATCA',
             ],
         ],
         [
-            'slug' => 'accountant',
-            'name' => 'Accountant / Finance',
-            'name_ar' => 'محاسب/مالية',
+            'slug' => 'procurement-specialists',
+            'name' => 'Procurement Specialists',
+            'name_ar' => 'أخصائيو المشتريات',
             'keywords' => [
-                'accountant', 'accounting', 'finance manager', 'financial analyst',
-                'auditor', 'audit', 'bookkeeper', 'CFO', 'controller',
-                'محاسب', 'محاسبة', 'مدقق', 'مالية', 'محلل مالي',
-                'IFRS', 'GAAP', 'SAP FICO', 'QuickBooks', 'Xero',
+                'procurement specialist', 'procurement officer', 'purchasing manager',
+                'buyer', 'sourcing specialist', 'vendor management',
+                'مشتريات', 'أخصائي مشتريات',
             ],
         ],
         [
-            'slug' => 'hr',
-            'name' => 'Human Resources',
-            'name_ar' => 'موارد بشرية',
+            'slug' => 'logistics-fleet-specialists',
+            'name' => 'Logistics/Fleet Specialists',
+            'name_ar' => 'أخصائيو اللوجستيات والأسطول',
             'keywords' => [
-                'human resources', 'HR manager', 'HR generalist', 'HR business partner',
+                'logistics specialist', 'logistics coordinator', 'fleet manager', 'fleet coordinator',
+                'warehouse manager', 'supply chain', 'dispatch coordinator',
+                'لوجستيات', 'إدارة الأسطول', 'سلاسل الإمداد',
+            ],
+        ],
+        [
+            'slug' => 'hr-specialists',
+            'name' => 'HR Specialists',
+            'name_ar' => 'أخصائيو الموارد البشرية',
+            'keywords' => [
+                'HR specialist', 'human resources', 'HR generalist', 'HR business partner',
                 'recruiter', 'talent acquisition', 'people operations', 'payroll specialist',
                 'موارد بشرية', 'مسؤول توظيف', 'أخصائي موارد بشرية',
-            ],
-        ],
-        [
-            'slug' => 'sales',
-            'name' => 'Sales / Business Development',
-            'name_ar' => 'مبيعات/تطوير أعمال',
-            'keywords' => [
-                'sales manager', 'sales executive', 'account manager', 'account executive',
-                'business development', 'BDM', 'key account',
-                'مدير مبيعات', 'مندوب مبيعات', 'تطوير أعمال',
-            ],
-        ],
-        [
-            'slug' => 'marketing',
-            'name' => 'Marketing',
-            'name_ar' => 'تسويق',
-            'keywords' => [
-                'marketing manager', 'digital marketing', 'SEO specialist', 'content marketer',
-                'brand manager', 'social media',
-                'تسويق', 'تسويق رقمي', 'مدير تسويق', 'وسائل التواصل الاجتماعي',
-            ],
-        ],
-        [
-            'slug' => 'operations',
-            'name' => 'Operations / Supply Chain',
-            'name_ar' => 'عمليات/سلاسل إمداد',
-            'keywords' => [
-                'operations manager', 'supply chain', 'logistics', 'procurement',
-                'warehouse manager', 'inventory',
-                'عمليات', 'سلاسل الإمداد', 'مشتريات', 'لوجستيات', 'مخازن',
-            ],
-        ],
-        [
-            'slug' => 'healthcare',
-            'name' => 'Healthcare / Medical',
-            'name_ar' => 'الرعاية الصحية',
-            'keywords' => [
-                'nurse', 'physician', 'doctor', 'pharmacist', 'medical officer',
-                'radiographer', 'physiotherapist', 'dentist',
-                'ممرض', 'ممرضة', 'طبيب', 'صيدلي', 'أخصائي علاج طبيعي',
-            ],
-        ],
-        [
-            'slug' => 'education',
-            'name' => 'Education / Training',
-            'name_ar' => 'تعليم/تدريب',
-            'keywords' => [
-                'teacher', 'instructor', 'lecturer', 'professor', 'trainer',
-                'curriculum designer', 'academic coordinator',
-                'معلم', 'معلمة', 'أستاذ', 'مدرب', 'منسق أكاديمي',
-            ],
-        ],
-        [
-            'slug' => 'legal',
-            'name' => 'Legal',
-            'name_ar' => 'قانوني',
-            'keywords' => [
-                'lawyer', 'attorney', 'legal counsel', 'paralegal', 'compliance officer',
-                'محامي', 'مستشار قانوني', 'الامتثال',
-            ],
-        ],
-        [
-            'slug' => 'design-creative',
-            'name' => 'Design / Creative',
-            'name_ar' => 'تصميم/إبداع',
-            'keywords' => [
-                'graphic designer', 'UI designer', 'UX designer', 'product designer',
-                'motion designer', 'video editor',
-                'مصمم جرافيك', 'مصمم واجهات',
-                'Figma', 'Adobe Photoshop', 'Adobe Illustrator', 'InDesign',
-            ],
-        ],
-        [
-            'slug' => 'project-management',
-            'name' => 'Project Management',
-            'name_ar' => 'إدارة المشاريع',
-            'keywords' => [
-                'project manager', 'programme manager', 'PMO', 'scrum master', 'agile coach',
-                'مدير مشروع', 'إدارة مشاريع',
-                'PMP', 'PRINCE2',
             ],
         ],
     ];

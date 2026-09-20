@@ -182,6 +182,7 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
         Route::post('/ai-search/cv-sourcing', [AiSearchController::class, 'cvSourcing'])
             ->middleware('throttle:8,1')
             ->name('ai-search.cv-sourcing');
+        Route::get('/ai-search/history/{searchJob}', [AiSearchController::class, 'show'])->name('ai-search.show');
     });
 
     Route::middleware('permission:ai_search.import')->group(function () {

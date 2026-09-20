@@ -137,16 +137,21 @@ class CvUploadController extends Controller
                     ], $entry);
                 }
 
-                $ai = $insights->candidateInsight([
-                    'full_name' => $candidate->full_name,
-                    'title' => $candidate->title,
-                    'specialization' => $candidate->specialization,
-                    'skills' => $candidate->skills()->pluck('name')->all(),
-                    'years_experience' => $candidate->years_experience,
-                    'expected_salary' => $candidate->expected_salary,
-                    'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
-                ]);
-                $candidate->update(['ai_summary' => $ai['summary']]);
+                try {
+                    $ai = $insights->candidateInsight([
+                        'full_name' => $candidate->full_name,
+                        'title' => $candidate->title,
+                        'specialization' => $candidate->specialization,
+                        'skills' => $candidate->skills()->pluck('name')->all(),
+                        'years_experience' => $candidate->years_experience,
+                        'expected_salary' => $candidate->expected_salary,
+                        'location' => trim(($candidate->city ?? '').' '.($candidate->country ?? '')),
+                    ]);
+                    $candidate->update(['ai_summary' => $ai['summary']]);
+                } catch (Throwable) {
+                    // AI enrichment is a bonus on top of the parsed CV data already saved above;
+                    // candidate creation must still succeed if the AI provider misbehaves.
+                }
 
                 $candidate->documents()->create([
                     'file_name' => $fileSecurity->safeOriginalName($file),
