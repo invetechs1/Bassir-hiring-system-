@@ -38,6 +38,7 @@
             @if(auth()->user()->hasPermission('candidate.read'))
             <a href="{{ route('candidates.index') }}">Candidates</a>
             <a href="{{ route('cv-bank.index') }}">CV Bank</a>
+            <a href="{{ route('sourcing-agents.index') }}">Sourcing Agents</a>
             <a href="{{ route('search-assistant.index') }}">Search Assistant</a>
             <a href="{{ route('comparisons.candidates') }}">Compare</a>
             @endif

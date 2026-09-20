@@ -1,5 +1,36 @@
 # Changelog Fixes
 
+## 2026-09-17 HR Sourcing Agents
+
+- New "Sourcing Agents" area (`/sourcing-agents`) where a recruiter can hire
+  virtual senior HR employees. Each agent has a name, avatar, persona
+  (senior_technical / campus_recruiter / executive_headhunter /
+  volume_recruiter), a specialty (reuses the classifier list), a
+  requirements profile (must / nice-to-have skills, years range, cities,
+  countries, languages), a minimum score bar, and a schedule
+  (hourly / daily / weekly / manual).
+- New `SourcingAgentService` orchestrates one run: materializes a
+  compliant `SourcingSearch` from the agent's brief, delegates the actual
+  internet search + public CV download to the existing
+  `AutoSourcingService` (official Google/Bing/SerpAPI + partner APIs,
+  never scraping, LinkedIn public-web flagged manual, consent PENDING),
+  then scores every new candidate 0–100 against the agent's profile
+  (must-have 40 · nice-to-have 20 · years 20 · location 10 · languages
+  10) and attaches only those at or above `min_score` as the agent's
+  picks.
+- `AutoSourcingService.downloadAndParse` now classifies each downloaded
+  CV and lands it under `storage/app/private/cv-bank/{specialty}/` so
+  sourced CVs join the same bank as manually uploaded ones.
+- New `bassir:agents-run` command (`--agent`, `--company`, `--force`) for
+  scheduling; agents track `runs_count`, `candidates_added`, rolling
+  `avg_score`, `last_run_at`, and `next_run_at`.
+- 3 new tables via a single migration: `sourcing_agents`,
+  `sourcing_agent_runs`, `sourcing_agent_candidates` (pivot with score).
+- 5 new feature tests: index loads, hire via form, scoring rewards
+  matches, scoring penalises gaps, `isDue` respects frequency/schedule.
+  Also extended the authenticated smoke matrix to cover the CV Bank
+  and Sourcing Agents pages (suite 80 → 85).
+
 ## 2026-08-25 CV Bank with Auto-Filtering by Specialty
 
 - New CV Bank feature (`/cv-bank`) that groups every candidate CV under a

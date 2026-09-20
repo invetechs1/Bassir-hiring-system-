@@ -35,6 +35,7 @@ class AutoSourcingService
         private readonly DuplicateDetectionService $duplicates,
         private readonly FileSecurityService $fileSecurity,
         private readonly AuditService $audit,
+        private readonly SpecialtyClassifierService $classifier,
     ) {
     }
 
@@ -305,21 +306,30 @@ class AutoSourcingService
             return null;
         }
 
-        $path = 'private/cvs/'.Str::uuid()->toString().'.'.$fileType;
-        Storage::disk('local')->put($path, $body);
-        $absolute = Storage::disk('local')->path($path);
+        // Land the CV first in a scratch spot so we can classify it before final placement.
+        $scratch = 'private/cv-bank/inbox/'.Str::uuid()->toString().'.'.$fileType;
+        Storage::disk('local')->put($scratch, $body);
+        $absolute = Storage::disk('local')->path($scratch);
 
         if ($this->fileSecurity->malwareScan($absolute) === 'FAILED') {
-            Storage::disk('local')->delete($path);
+            Storage::disk('local')->delete($scratch);
             return null;
         }
 
         try {
             $parsed = $this->parser->parse($absolute);
         } catch (Throwable) {
-            Storage::disk('local')->delete($path);
+            Storage::disk('local')->delete($scratch);
             return null;
         }
+
+        // Move into the specialty folder so downloaded CVs land in the same
+        // bank organisation as manually-uploaded ones.
+        $classification = $this->classifier->classify($parsed);
+        $finalPath = 'private/cv-bank/'.$classification['slug'].'/'.basename($scratch);
+        Storage::disk('local')->makeDirectory('private/cv-bank/'.$classification['slug']);
+        Storage::disk('local')->move($scratch, $finalPath);
+        $path = $finalPath;
 
         return [
             'path' => $path,

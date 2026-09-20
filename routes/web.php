@@ -33,6 +33,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalaryBenchmarkController;
 use App\Http\Controllers\SearchAssistantController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SourcingAgentController;
 use App\Http\Controllers\SpecializationController;
 use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\UserManagementController;
@@ -86,6 +87,23 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
     Route::post('/cv-bank/candidates/{candidate}/reclassify', [CvBankController::class, 'reclassify'])
         ->middleware(['permission:candidate.write', 'throttle:30,1'])
         ->name('cv-bank.reclassify');
+
+    Route::get('/sourcing-agents', [SourcingAgentController::class, 'index'])
+        ->middleware('permission:candidate.read')
+        ->name('sourcing-agents.index');
+    Route::middleware('permission:candidate.write')->group(function () {
+        Route::get('/sourcing-agents/create', [SourcingAgentController::class, 'create'])->name('sourcing-agents.create');
+        Route::post('/sourcing-agents', [SourcingAgentController::class, 'store'])->name('sourcing-agents.store');
+        Route::get('/sourcing-agents/{agent}/edit', [SourcingAgentController::class, 'edit'])->name('sourcing-agents.edit');
+        Route::put('/sourcing-agents/{agent}', [SourcingAgentController::class, 'update'])->name('sourcing-agents.update');
+        Route::delete('/sourcing-agents/{agent}', [SourcingAgentController::class, 'destroy'])->name('sourcing-agents.destroy');
+        Route::post('/sourcing-agents/{agent}/run', [SourcingAgentController::class, 'run'])
+            ->middleware('throttle:10,1')
+            ->name('sourcing-agents.run');
+    });
+    Route::get('/sourcing-agents/{agent}', [SourcingAgentController::class, 'show'])
+        ->middleware('permission:candidate.read')
+        ->name('sourcing-agents.show');
 
     Route::get('/search-assistant', [SearchAssistantController::class, 'index'])
         ->middleware('permission:candidate.read')
