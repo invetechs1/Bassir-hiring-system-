@@ -16,6 +16,11 @@ Artisan::command('bassir:health', function () {
 //   * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
 Schedule::command('bassir:auto-source')->dailyAt('02:00')->withoutOverlapping();
 
+// HR sourcing agents: sweep every 15 minutes and run each agent whose
+// next_run_at has passed. Agents themselves reschedule per their frequency
+// (hourly / daily / weekly / manual), so this outer sweep is cheap.
+Schedule::command('bassir:agents-run')->everyFifteenMinutes()->withoutOverlapping();
+
 Artisan::command('bassir:create-owner {--username= : Owner username} {--email= : Owner email} {--name= : Owner full name} {--company= : Company name} {--password= : Owner password; omit to enter securely}', function () {
     $username = (string) ($this->option('username') ?: $this->ask('Owner username'));
     $email = (string) ($this->option('email') ?: $this->ask('Owner email'));
