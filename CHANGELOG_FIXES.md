@@ -1,5 +1,35 @@
 # Changelog Fixes
 
+## 2026-11-10 Resume search accuracy overhaul
+
+Root causes found and fixed:
+
+- **CV parsing**: DOCX text inside tables/runs/headers was skipped (most designed CVs came back near-empty);
+  downloaded CVs were read as raw bytes; skills came from a 12-item dictionary; names, phones, country and
+  experience were frequently wrong. Rewritten (`CvParserService`, new `SkillCatalog` with ~140 skills + aliases).
+- **No searchable CV text**: only a 900-1200 char excerpt was kept (then overwritten by the AI summary).
+  Added `candidates.cv_text` (migration) and `bassir:cv-reindex` to backfill existing CVs.
+- **Internal search**: candidates / CV Bank searched 4 columns with LIKE; the AI assistant understood 6 cities,
+  12 titles and 9 skills and returned *every candidate* when it understood nothing. New relevance-ranked
+  `CandidateSearchService` (skills, past roles, certifications, location, full CV text, min-years, synonyms,
+  matched/missing explanation, highlighted excerpt) used by all three screens.
+- **Specialty routing**: substring keyword matching ("SAFE" in "safety", "Excel" in "excellent"). Now whole-word,
+  weighted by title > skills > body.
+- **Web sourcing**: queries AND-ed every filter as exact phrases; job-posting detection flagged real CVs
+  ("required", "University of"); results were not scored against the request; auto-sourcing imported job
+  adverts as candidates. Tiered queries, per-result relevance score with matched/not-seen terms,
+  evidence-counting classifier, job postings hidden by default, auto-import only imports likely CVs.
+- **Import flow**: specialty was always "Unclassified"; files were not placed in the CV Bank folder; structured
+  experience/education was not saved. Now auto-classified, filed correctly, fully parsed.
+- **Security**: CV download URLs from search results could target internal addresses (SSRF) and HTML pages could be
+  saved as ".pdf". Shared `CvDocumentFetcher` blocks private/reserved addresses (incl. redirects) and checks file bytes.
+- **Opening a resume**: new inline "Open CV" (PDF/images) from the profile and CV Bank, plus an extracted-text view
+  with the search terms highlighted.
+- API keys set only in `.env` were ignored under `config:cache`; `ApiCredentialService` now falls back to config.
+- Tests: 82 -> 117.
+
+Deploy: `php artisan migrate --force && php artisan bassir:cv-reindex && php artisan bassir:cv-bank-reclassify`
+
 ## 2026-08-25 CV Bank with Auto-Filtering by Specialty
 
 - New CV Bank feature (`/cv-bank`) that groups every candidate CV under a

@@ -73,13 +73,14 @@ class CvUploadController extends Controller
             'current_company' => $parsed['current_company'] ?? null,
             'specialization' => $classification['name'],
             'industry' => $parsed['industry'] ?? null,
-            'country' => $parsed['location'],
+            'country' => $parsed['country'] ?? null,
             'city' => $parsed['city'] ?? null,
             'nationality' => $parsed['nationality'] ?? null,
             'years_experience' => $parsed['years_experience'] ?? 0,
             'expected_salary' => $parsed['expected_salary'] ?? null,
             'notice_period' => $parsed['notice_period'] ?? null,
             'ai_summary' => mb_substr($parsed['raw_text'], 0, 1200),
+            'cv_text' => mb_substr($parsed['raw_text'], 0, 100000) ?: null,
             'consent_status' => 'PENDING',
             'duplicate_hash' => $duplicates->hash(['full_name' => $parsed['name'], 'email' => $parsed['email'], 'phone' => $parsed['phone']]),
             'company_id' => $tenant->defaultCompanyId(Auth::user()),
@@ -110,6 +111,7 @@ class CvUploadController extends Controller
                     'expected_salary' => $candidateData['expected_salary'] ?? null,
                     'notice_period' => $candidateData['notice_period'] ?? null,
                     'parsed_profile' => $candidateData['parsed_profile'] ?? null,
+                    'cv_text' => $candidateData['cv_text'] ?? null,
                 ], fn ($value) => ! is_null($value) && $value !== ''))->save();
 
                 foreach ($parsed['skills'] as $skill) {

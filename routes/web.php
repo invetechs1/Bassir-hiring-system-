@@ -66,6 +66,9 @@ Route::middleware(['set_locale', 'auth', 'force_password_change'])->group(functi
     Route::get('/candidates/{candidate}/documents/{document}/download', [CandidateDocumentController::class, 'download'])
         ->middleware('permission:candidate.read')
         ->name('candidates.documents.download');
+    Route::get('/candidates/{candidate}/documents/{document}/view', [CandidateDocumentController::class, 'view'])
+        ->middleware('permission:candidate.read')
+        ->name('candidates.documents.view');
     Route::get('/candidates/{candidate}/job-matches', [CandidateJobMatchController::class, 'show'])
         ->middleware('permission:candidate.read')
         ->name('candidates.job-matches');

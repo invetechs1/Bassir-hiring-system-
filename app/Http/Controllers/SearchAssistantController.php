@@ -12,11 +12,13 @@ class SearchAssistantController extends Controller
     public function index(Request $request, TalentSearchAssistantService $assistant): View
     {
         $query = (string) $request->input('q', '');
-        $candidates = trim($query) !== '' ? $assistant->search($query, Auth::user()) : collect();
+        $mode = in_array($request->input('mode'), ['all', 'any'], true) ? $request->input('mode') : 'balanced';
+        $candidates = trim($query) !== '' ? $assistant->search($query, Auth::user(), 50, $mode) : collect();
 
         return view('search-assistant.index', [
             'query' => $query,
             'candidates' => $candidates,
+            'mode' => $mode,
         ]);
     }
 }

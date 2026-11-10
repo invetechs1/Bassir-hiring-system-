@@ -8,36 +8,55 @@ use App\Models\Candidate;
 use App\Models\Specialization;
 use App\Models\Tag;
 use App\Services\AuditService;
+use App\Services\CandidateSearchService;
 use App\Services\CandidateQualityService;
 use App\Services\DuplicateDetectionService;
 use App\Services\TenantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CandidateController extends Controller
 {
-    public function index(Request $request, TenantService $tenant): View
+    public function index(Request $request, TenantService $tenant, CandidateSearchService $search): View
     {
         $archived = $request->boolean('archived');
+        $q = trim((string) $request->query('q', ''));
+        $mode = in_array($request->query('mode'), ['all', 'any'], true) ? $request->query('mode') : 'balanced';
+
+        // A typed query goes through the relevance-ranked search (name, title, specialty, skills, past
+        // roles, certifications, location and the full CV text) instead of a 4-column LIKE.
+        if ($q !== '') {
+            $ranked = $search->search($q, Auth::user(), [
+                'mode' => $mode,
+                'status' => $request->query('status'),
+                'archived' => $archived,
+            ]);
+            $page = LengthAwarePaginator::resolveCurrentPage();
+            $candidates = new LengthAwarePaginator(
+                $ranked->forPage($page, 20)->values(),
+                $ranked->count(),
+                20,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+
+            return view('candidates.index', ['candidates' => $candidates, 'archived' => $archived, 'searching' => true, 'mode' => $mode]);
+        }
+
         $candidates = $tenant->scope(Candidate::query(), Auth::user())
             ->when($archived, fn ($query) => $query->onlyTrashed())
             ->with(['skills', 'languages', 'scores'])
-            ->when($request->q, fn ($query) => $query->where(function ($inner) use ($request) {
-                $inner->where('full_name', 'like', "%{$request->q}%")
-                    ->orWhere('email', 'like', "%{$request->q}%")
-                    ->orWhere('phone', 'like', "%{$request->q}%")
-                    ->orWhere('title', 'like', "%{$request->q}%");
-            }))
             ->when($request->status, fn ($query) => $query->where('status', $request->status))
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
-        return view('candidates.index', compact('candidates', 'archived'));
+        return view('candidates.index', ['candidates' => $candidates, 'archived' => $archived, 'searching' => false, 'mode' => $mode]);
     }
 
     public function create(): View
@@ -94,7 +113,7 @@ class CandidateController extends Controller
         return redirect()->route('candidates.show', $candidate)->with('status', 'Candidate created');
     }
 
-    public function show(Candidate $candidate): View
+    public function show(Request $request, Candidate $candidate, CandidateSearchService $search): View
     {
         $this->authorizeTenant($candidate);
         $candidate->load([
@@ -111,7 +130,14 @@ class CandidateController extends Controller
             'education',
             'certifications',
         ]);
-        return view('candidates.show', compact('candidate'));
+        // Arriving from a search result carries ?hl=<the query> so the CV text can highlight what matched.
+        $highlightQuery = trim((string) $request->query('hl', ''));
+
+        return view('candidates.show', [
+            'candidate' => $candidate,
+            'highlightTerms' => $highlightQuery !== '' ? $search->termsFor($highlightQuery) : [],
+            'highlighter' => $search,
+        ]);
     }
 
     public function edit(Candidate $candidate): View

@@ -7,26 +7,26 @@ use App\Models\AiSearchResult;
 use App\Models\Candidate;
 use App\Services\AiInsightsService;
 use App\Services\AuditService;
-use App\Services\CvParserService;
+use App\Services\CvDocumentFetcher;
 use App\Services\DuplicateDetectionService;
-use App\Services\FileSecurityService;
 use App\Services\SearchProviderService;
+use App\Services\SpecialtyClassifierService;
 use App\Services\TenantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
 
 class AiSearchController extends Controller
 {
-    public function index(TenantService $tenant): View
+    public function index(TenantService $tenant, SearchProviderService $search): View
     {
-        return view('ai-search.index', ['history' => $tenant->scope(AiSearchJob::query(), Auth::user())->latest()->take(10)->get()]);
+        return view('ai-search.index', [
+            'history' => $tenant->scope(AiSearchJob::query(), Auth::user())->latest()->take(10)->get(),
+            'providers' => $search->configuredProviders(),
+        ]);
     }
 
     /**
@@ -34,18 +34,27 @@ class AiSearchController extends Controller
      * the browser Back button after an import — results are read back from what was
      * persisted at search time, so this is a plain GET and never resubmits the search.
      */
-    public function show(AiSearchJob $searchJob, TenantService $tenant): View
+    public function show(Request $request, AiSearchJob $searchJob, TenantService $tenant, SearchProviderService $search): View
     {
         if (! Auth::user()?->isSuperAdmin() && $searchJob->company_id !== Auth::user()?->company_id) {
             abort(404);
         }
         $searchJob->load('results');
 
+        $all = $searchJob->results->map(fn ($row) => $row->raw_payload ?? [])->all();
+        // Job postings, templates and social pages are hidden by default — they were what made results look "wrong".
+        $showAll = $request->boolean('all');
+        $results = $showAll ? $all : array_values(array_filter($all, fn ($row) => ! in_array($row['match_quality'] ?? 'uncertain', ['likely_job_posting', 'likely_other'], true)));
+
         return view('ai-search.index', [
             'history' => $tenant->scope(AiSearchJob::query(), Auth::user())->latest()->take(10)->get(),
             'queries' => $searchJob->queries ?? [],
-            'results' => $searchJob->results->map(fn ($row) => $row->raw_payload ?? [])->all(),
+            'results' => $results,
+            'hiddenCount' => count($all) - count($results),
+            'showAll' => $showAll,
             'searchJob' => $searchJob,
+            'filters' => $searchJob->filters ?? [],
+            'providers' => $search->configuredProviders(),
         ]);
     }
 
@@ -71,12 +80,11 @@ class AiSearchController extends Controller
             'software_skills' => $this->split($data['software_skills'] ?? ''),
             'languages' => $this->split($data['languages'] ?? ''),
         ];
+        if (trim((string) $filters['job_title']) === '' && trim((string) $filters['specialization']) === '' && $filters['skills'] === [] && $filters['software_skills'] === []) {
+            return back()->withInput()->withErrors(['job_title' => 'Enter at least a job title, a specialization, or a skill so there is something to search for.']);
+        }
         $queries = $search->buildQueries($filters);
         $results = $search->cvSourcing($filters);
-        foreach ($results as &$result) {
-            $result['candidate_name'] = $this->extractCandidateName($result['title'], $result['snippet']);
-        }
-        unset($result);
         $job = DB::transaction(function () use ($filters, $queries, $results, $tenant) {
             $job = AiSearchJob::create([
                 'company_id' => $tenant->defaultCompanyId(Auth::user()),
@@ -106,8 +114,9 @@ class AiSearchController extends Controller
         AiInsightsService $insights,
         AuditService $audit,
         TenantService $tenant,
-        CvParserService $parser,
-        FileSecurityService $fileSecurity
+        CvDocumentFetcher $fetcher,
+        SpecialtyClassifierService $classifier,
+        SearchProviderService $search
     ): RedirectResponse {
         $data = $request->validate([
             'result_id' => ['required', 'exists:ai_search_results,id'],
@@ -129,16 +138,36 @@ class AiSearchController extends Controller
         $download = null;
         $fileType = strtolower((string) ($payload['file_type'] ?? 'profile'));
         if (in_array($fileType, ['pdf', 'doc', 'docx'], true)) {
-            $download = $this->downloadAndParseSourceDocument($sourceUrl, $fileType, $fileSecurity, $parser);
+            $download = $fetcher->fetch($sourceUrl, $fileType);
+        }
+        $parsed = $download['parsed'] ?? null;
+
+        // Specialty: an explicit choice by the recruiter wins; otherwise classify what we actually know
+        // (the whole CV when it could be downloaded, else the result title/snippet); otherwise fall back to
+        // the specialty that was searched for.
+        $chosen = trim((string) ($data['specialization'] ?? ''));
+        $classification = $classifier->classify($parsed ?? [
+            'title' => $payload['title'] ?? '',
+            'summary' => $payload['snippet'] ?? '',
+        ]);
+        if ($chosen !== '' && strcasecmp($chosen, SpecialtyClassifierService::UNCLASSIFIED_NAME) !== 0) {
+            $specialization = $chosen;
+        } elseif ($classification['confidence'] >= 4) {
+            $specialization = $classification['name'];
+        } else {
+            $specialization = trim((string) ($jobFilters['specialization'] ?? '')) ?: SpecialtyClassifierService::UNCLASSIFIED_NAME;
+        }
+        if ($download) {
+            $download = $fetcher->relocate($download, $classifier->slugOf($specialization));
         }
 
         $candidateData = [
-            'full_name' => $this->nameFromPayload($payload),
+            'full_name' => $this->nameFromPayload($payload, $search),
             'email' => null,
             'phone' => null,
             'linkedin_url' => str_contains(strtolower($sourceUrl), 'linkedin.com') ? $sourceUrl : null,
             'title' => mb_substr((string) ($payload['title'] ?? 'Candidate Profile'), 0, 120),
-            'specialization' => $data['specialization'] ?: ($jobFilters['specialization'] ?? 'Unclassified'),
+            'specialization' => $specialization,
             'country' => $jobFilters['country'] ?? null,
             'city' => $jobFilters['city'] ?? null,
             'ai_summary' => mb_substr((string) ($payload['snippet'] ?? ''), 0, 900),
@@ -146,25 +175,27 @@ class AiSearchController extends Controller
             'status' => 'NEW',
             'company_id' => $result->job?->company_id ?: $tenant->defaultCompanyId(Auth::user()),
         ];
-        if ($download) {
-            $p = $download['parsed'];
+        if ($parsed) {
             $candidateData = array_merge($candidateData, array_filter([
-                'full_name' => $p['name'] ?: $candidateData['full_name'],
-                'email' => $p['email'] ?? null,
-                'phone' => $p['phone'] ?? null,
-                'current_company' => $p['current_company'] ?? null,
-                'industry' => $p['industry'] ?? null,
-                'city' => $p['city'] ?? $candidateData['city'],
-                'nationality' => $p['nationality'] ?? null,
-                'years_experience' => $p['years_experience'] ?? null,
-                'expected_salary' => $p['expected_salary'] ?? null,
-                'notice_period' => $p['notice_period'] ?? null,
-                'ai_summary' => isset($p['raw_text']) ? mb_substr($p['raw_text'], 0, 1200) : null,
+                'full_name' => $parsed['name'] ?: $candidateData['full_name'],
+                'title' => $parsed['current_job_title'] ?? null,
+                'email' => $parsed['email'] ?? null,
+                'phone' => $parsed['phone'] ?? null,
+                'current_company' => $parsed['current_company'] ?? null,
+                'industry' => $parsed['industry'] ?? null,
+                'country' => $parsed['country'] ?? $candidateData['country'],
+                'city' => $parsed['city'] ?? $candidateData['city'],
+                'nationality' => $parsed['nationality'] ?? null,
+                'years_experience' => $parsed['years_experience'] ?? null,
+                'expected_salary' => $parsed['expected_salary'] ?? null,
+                'notice_period' => $parsed['notice_period'] ?? null,
+                'ai_summary' => isset($parsed['raw_text']) ? mb_substr($parsed['raw_text'], 0, 1200) : null,
+                'cv_text' => isset($parsed['raw_text']) ? mb_substr($parsed['raw_text'], 0, 100000) : null,
             ], fn ($v) => $v !== null && $v !== ''));
             $candidateData['parsed_profile'] = [
-                'skills' => $p['skills'] ?? [],
-                'languages' => $p['languages'] ?? [],
-                'previous_companies' => $p['previous_companies'] ?? [],
+                'skills' => $parsed['skills'] ?? [],
+                'languages' => $parsed['languages'] ?? [],
+                'previous_companies' => $parsed['previous_companies'] ?? [],
                 'source' => 'ai_search_download',
             ];
         }
@@ -185,6 +216,9 @@ class AiSearchController extends Controller
 
         $candidate = DB::transaction(function () use ($existing, $candidateData, $result, $sourceUrl, $data, $download) {
             $candidate = $existing ?: Candidate::create($candidateData);
+            if ($existing && empty($existing->cv_text) && ! empty($candidateData['cv_text'])) {
+                $existing->update(['cv_text' => $candidateData['cv_text']]);
+            }
             $candidate->sources()->firstOrCreate([
                 'source_type' => $result->source,
                 'source_url' => $sourceUrl,
@@ -198,11 +232,21 @@ class AiSearchController extends Controller
             ]);
 
             if ($download) {
-                foreach ($download['parsed']['skills'] ?? [] as $skill) {
+                $parsed = $download['parsed'];
+                foreach ($parsed['skills'] ?? [] as $skill) {
                     $candidate->skills()->firstOrCreate(['name' => $skill]);
                 }
-                foreach ($download['parsed']['languages'] ?? [] as $language) {
+                foreach ($parsed['languages'] ?? [] as $language) {
                     $candidate->languages()->firstOrCreate(['name' => $language]);
+                }
+                foreach ($parsed['experience_entries'] ?? [] as $entry) {
+                    $candidate->experience()->firstOrCreate(['title' => $entry['title'] ?? '', 'company' => $entry['company'] ?? ''], $entry);
+                }
+                foreach ($parsed['education_entries'] ?? [] as $entry) {
+                    $candidate->education()->firstOrCreate(['institution' => $entry['institution'] ?? '', 'degree' => $entry['degree'] ?? ''], $entry);
+                }
+                foreach ($parsed['certification_entries'] ?? [] as $entry) {
+                    $candidate->certifications()->firstOrCreate(['name' => $entry['name'] ?? '', 'issuer' => $entry['issuer'] ?? ''], $entry);
                 }
                 $candidate->documents()->create([
                     'file_name' => $download['file_name'],
@@ -240,9 +284,15 @@ class AiSearchController extends Controller
             'candidate_id' => $candidate->id,
             'source' => $result->source,
             'consent_status' => $data['consent_status'],
+            'cv_downloaded' => $download !== null,
         ], $request);
 
-        return redirect()->route('candidates.show', $candidate)->with('status', $existing ? 'Existing candidate linked to AI search result' : 'AI search result imported to candidate database');
+        $message = $existing ? 'Existing candidate linked to AI search result' : 'AI search result imported to candidate database';
+        if (in_array($fileType, ['pdf', 'doc', 'docx'], true) && ! $download) {
+            $message .= '. The CV file could not be downloaded automatically (the source may block downloads), so only the search snippet was saved; open the source link and upload the CV file to complete the profile.';
+        }
+
+        return redirect()->route('candidates.show', $candidate)->with('status', $message);
     }
 
     public function importLinkedinManual(
@@ -313,7 +363,7 @@ class AiSearchController extends Controller
         return redirect()->route('candidates.show', $candidate)->with('status', 'LinkedIn profile imported manually and compliantly');
     }
 
-    private function nameFromPayload(array $payload): string
+    private function nameFromPayload(array $payload, SearchProviderService $search): string
     {
         $stored = trim((string) ($payload['candidate_name'] ?? ''));
         if ($stored !== '') {
@@ -322,7 +372,7 @@ class AiSearchController extends Controller
 
         $title = trim((string) ($payload['title'] ?? ''));
         $snippet = trim((string) ($payload['snippet'] ?? ''));
-        if ($extracted = $this->extractCandidateName($title, $snippet)) {
+        if ($extracted = $search->candidateName($title, $snippet, (string) ($payload['url'] ?? ''))) {
             return $extracted;
         }
 
@@ -334,112 +384,6 @@ class AiSearchController extends Controller
         }
 
         return mb_substr($title, 0, 120);
-    }
-
-    /**
-     * Pull the candidate's real name out of the title/snippet when the search result
-     * follows one of the common CV-listing phrasings ("X is a Jordanian civil
-     * engineer...", "resume for X", "Profile: X.", "Resume - X"). Falls back to null
-     * so the caller can use its own title-based heuristic — this only returns a name
-     * it's reasonably confident about.
-     */
-    /** Capitalized phrases that match the name pattern but are places, not people — must be rejected. */
-    private const NAME_EXTRACTION_BLOCKLIST = [
-        'saudi arabia', 'united arab emirates', 'united states', 'united kingdom', 'middle east',
-        'riyadh', 'jeddah', 'dammam', 'khobar', 'mecca', 'medina', 'abu dhabi', 'dubai', 'doha',
-        'kuwait city', 'manama', 'muscat', 'amman', 'cairo', 'gulf', 'gcc', 'ksa', 'uae', 'qatar',
-        'kuwait', 'bahrain', 'oman', 'egypt', 'jordan', 'pakistan', 'india', 'philippines', 'lebanon',
-        'civil engineer', 'civil engineering', 'senior civil', 'project engineer', 'site engineer',
-    ];
-
-    private function extractCandidateName(string $title, string $snippet): ?string
-    {
-        $namePattern = "[A-Z][\p{L}'\-]+(?:\s+[A-Z][\p{L}'\-]+){1,4}";
-        $patterns = [
-            "/({$namePattern})\s+is\s+(?:a|an)\s/u",
-            "/resume\s+for\s+({$namePattern})/iu",
-            "/(?:cv|curriculum vitae)\s+for\s+({$namePattern})/iu",
-            "/profile:\s*({$namePattern})\s*\./iu",
-            "/resume\s*[:\-–]\s*({$namePattern})/iu",
-            "/\bcv\s*[:\-–]\s*({$namePattern})/iu",
-        ];
-
-        foreach ([$snippet, $title] as $source) {
-            foreach ($patterns as $pattern) {
-                if (preg_match($pattern, $source, $matches)) {
-                    $name = trim($matches[1]);
-                    $wordCount = str_word_count($name);
-                    if ($wordCount < 2 || $wordCount > 5) {
-                        continue;
-                    }
-                    if (in_array(strtolower($name), self::NAME_EXTRACTION_BLOCKLIST, true)) {
-                        continue;
-                    }
-
-                    return $name;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Fetch and parse a genuinely public, directly-downloadable CV file (pdf/doc/docx
-     * URL, never LinkedIn) so an import carries real contact/skills data instead of
-     * just the search snippet. Best-effort: returns null on any failure so the caller
-     * falls back to metadata-only import — a network hiccup must never block the import.
-     *
-     * @return array{path:string,file_name:string,mime_type:string,checksum:string,malware_scan_status:string,parsed:array<string,mixed>}|null
-     */
-    private function downloadAndParseSourceDocument(string $url, string $fileType, FileSecurityService $fileSecurity, CvParserService $parser): ?array
-    {
-        if (! preg_match('#^https?://#i', $url) || str_contains(strtolower($url), 'linkedin.com')) {
-            return null;
-        }
-
-        try {
-            $response = Http::timeout(25)->withOptions(['allow_redirects' => true])->get($url);
-        } catch (Throwable) {
-            return null;
-        }
-        if (! $response->ok()) {
-            return null;
-        }
-
-        $body = $response->body();
-        $maxBytes = ((int) config('bassir.max_upload_kb', 10240)) * 1024;
-        if ($body === '' || strlen($body) > $maxBytes) {
-            return null;
-        }
-
-        $path = 'private/cv-bank-imports/'.Str::uuid()->toString().'.'.$fileType;
-        Storage::disk('local')->put($path, $body);
-        $absolute = Storage::disk('local')->path($path);
-
-        $scanStatus = $fileSecurity->malwareScan($absolute);
-        if ($scanStatus === 'FAILED') {
-            Storage::disk('local')->delete($path);
-
-            return null;
-        }
-
-        try {
-            $parsed = $parser->parse($absolute);
-        } catch (Throwable) {
-            Storage::disk('local')->delete($path);
-
-            return null;
-        }
-
-        return [
-            'path' => $path,
-            'file_name' => Str::limit(basename(parse_url($url, PHP_URL_PATH) ?: 'cv.'.$fileType), 180, ''),
-            'mime_type' => $response->header('Content-Type') ?: 'application/octet-stream',
-            'checksum' => hash('sha256', $body),
-            'malware_scan_status' => $scanStatus,
-            'parsed' => $parsed,
-        ];
     }
 
     private function split(string $value): array

@@ -28,7 +28,24 @@ class ApiCredentialService
             }
         }
 
-        return $envFallback ? env($envFallback) : null;
+        if (! $envFallback) {
+            return null;
+        }
+
+        // After `php artisan config:cache` (the production deploy gate) env() returns null for anything not
+        // read through config/, which silently disabled every key set in .env. Fall back to the cached config.
+        $configKey = [
+            'OPENAI_API_KEY' => 'openai_api_key',
+            'GOOGLE_CUSTOM_SEARCH_API_KEY' => 'google_key',
+            'GOOGLE_CUSTOM_SEARCH_ENGINE_ID' => 'google_cx',
+            'BING_SEARCH_API_KEY' => 'bing_key',
+            'SERPAPI_API_KEY' => 'serpapi_key',
+            'AGENCY_FEED_URL' => 'agency_feed_url',
+            'AGENCY_FEED_TOKEN' => 'agency_feed_token',
+            'OCR_SPACE_API_KEY' => 'ocr_space_api_key',
+        ][$envFallback] ?? null;
+
+        return env($envFallback) ?: ($configKey ? config('bassir.'.$configKey) : null);
     }
 
     public function aliases(string $provider): array

@@ -11,8 +11,6 @@ use App\Models\SourcingSearch;
 use App\Models\User;
 use App\Services\Connectors\PlatformConnectorRegistry;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -31,9 +29,9 @@ class AutoSourcingService
     public function __construct(
         private readonly SearchProviderService $providers,
         private readonly PlatformConnectorRegistry $connectors,
-        private readonly CvParserService $parser,
+        private readonly CvDocumentFetcher $fetcher,
+        private readonly SpecialtyClassifierService $classifier,
         private readonly DuplicateDetectionService $duplicates,
-        private readonly FileSecurityService $fileSecurity,
         private readonly AuditService $audit,
     ) {
     }
@@ -163,8 +161,33 @@ class AutoSourcingService
                 continue;
             }
 
+            // Never turn a job advert, template or non-CV page into a "candidate". Only results that look
+            // like a person's CV/profile are imported automatically; the rest stay in the search history
+            // for a human to look at.
+            if (! $this->worthImporting($row)) {
+                continue;
+            }
+
             $this->importOne($search, $row, $url, $run, $actor);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function worthImporting(array $row): bool
+    {
+        $quality = $row['match_quality'] ?? null;
+        if (in_array($quality, ['likely_job_posting', 'likely_other'], true)) {
+            return false;
+        }
+        // Unsure results must at least match the request reasonably well (results from connectors that
+        // do not score are given the benefit of the doubt).
+        if ($quality === 'uncertain' && isset($row['relevance_score'])) {
+            return (int) $row['relevance_score'] >= 50;
+        }
+
+        return true;
     }
 
     /**
@@ -194,19 +217,29 @@ class AutoSourcingService
         $download = null;
         $fileType = strtolower((string) ($row['file_type'] ?? 'profile'));
         if ($search->download_cvs && in_array($fileType, self::DOWNLOADABLE, true)) {
-            $download = $this->downloadAndParse($url, $fileType);
+            $download = $this->fetcher->fetch($url, $fileType, 'private/cvs');
             if ($download) {
                 $p = $download['parsed'];
+                $classification = $this->classifier->classify($p);
+                // Content wins over the saved search's specialty when the CV clearly says something else.
+                if ($classification['confidence'] >= 4) {
+                    $candidateData['specialization'] = $classification['name'];
+                }
+                $download = $this->fetcher->relocate($download, $this->classifier->slugOf($candidateData['specialization']));
                 $candidateData = array_merge($candidateData, array_filter([
                     'full_name' => $p['name'] ?: $candidateData['full_name'],
+                    'title' => $p['current_job_title'] ?? null,
                     'email' => $p['email'] ?? null,
                     'phone' => $p['phone'] ?? null,
                     'current_company' => $p['current_company'] ?? null,
                     'industry' => $p['industry'] ?? null,
+                    'country' => $p['country'] ?? $candidateData['country'],
                     'city' => $p['city'] ?? $candidateData['city'],
                     'nationality' => $p['nationality'] ?? null,
                     'years_experience' => $p['years_experience'] ?? null,
+                    'expected_salary' => $p['expected_salary'] ?? null,
                     'notice_period' => $p['notice_period'] ?? null,
+                    'cv_text' => isset($p['raw_text']) ? mb_substr($p['raw_text'], 0, 100000) : null,
                 ], fn ($v) => $v !== null && $v !== ''));
                 $candidateData['parsed_profile'] = [
                     'skills' => $p['skills'] ?? [],
@@ -255,6 +288,12 @@ class AutoSourcingService
                 foreach ($download['parsed']['languages'] ?? [] as $language) {
                     $candidate->languages()->firstOrCreate(['name' => $language]);
                 }
+                foreach ($download['parsed']['experience_entries'] ?? [] as $entry) {
+                    $candidate->experience()->firstOrCreate(['title' => $entry['title'] ?? '', 'company' => $entry['company'] ?? ''], $entry);
+                }
+                foreach ($download['parsed']['education_entries'] ?? [] as $entry) {
+                    $candidate->education()->firstOrCreate(['institution' => $entry['institution'] ?? '', 'degree' => $entry['degree'] ?? ''], $entry);
+                }
                 $candidate->documents()->create([
                     'file_name' => $download['file_name'],
                     'mime_type' => $download['mime_type'],
@@ -279,63 +318,13 @@ class AutoSourcingService
     }
 
     /**
-     * Download a public CV file and parse it. Returns null on any failure so the
-     * caller falls back to metadata-only import.
-     *
-     * @return array{path:string,file_name:string,mime_type:string,checksum:string,malware_scan_status:string,parsed:array<string,mixed>}|null
-     */
-    private function downloadAndParse(string $url, string $fileType): ?array
-    {
-        if (! preg_match('#^https?://#i', $url) || str_contains(strtolower($url), 'linkedin.com')) {
-            return null;
-        }
-
-        try {
-            $response = Http::timeout(25)->withOptions(['allow_redirects' => true])->get($url);
-        } catch (Throwable) {
-            return null;
-        }
-        if (! $response->ok()) {
-            return null;
-        }
-
-        $body = $response->body();
-        $maxBytes = ((int) config('bassir.max_upload_kb', 10240)) * 1024;
-        if ($body === '' || strlen($body) > $maxBytes) {
-            return null;
-        }
-
-        $path = 'private/cvs/'.Str::uuid()->toString().'.'.$fileType;
-        Storage::disk('local')->put($path, $body);
-        $absolute = Storage::disk('local')->path($path);
-
-        if ($this->fileSecurity->malwareScan($absolute) === 'FAILED') {
-            Storage::disk('local')->delete($path);
-            return null;
-        }
-
-        try {
-            $parsed = $this->parser->parse($absolute);
-        } catch (Throwable) {
-            Storage::disk('local')->delete($path);
-            return null;
-        }
-
-        return [
-            'path' => $path,
-            'file_name' => Str::limit(basename(parse_url($url, PHP_URL_PATH) ?: 'cv.'.$fileType), 180, ''),
-            'mime_type' => $response->header('Content-Type') ?: 'application/octet-stream',
-            'checksum' => hash('sha256', $body),
-            'malware_scan_status' => 'NOT_CONFIGURED',
-            'parsed' => $parsed,
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>  $row
      */
     private function nameFromRow(array $row): string
     {
+        if (! empty($row['candidate_name'])) {
+            return Str::limit((string) $row['candidate_name'], 118, '');
+        }
         $title = trim((string) ($row['title'] ?? ''));
         // A search title is often "Ahmed Ali — Senior BIM Engineer | CV". Take the leading name-ish part.
         $lead = preg_split('/[|\x{2013}\x{2014}\-–—:,]/u', $title)[0] ?? $title;

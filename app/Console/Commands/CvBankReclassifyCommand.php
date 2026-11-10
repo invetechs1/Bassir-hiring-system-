@@ -32,7 +32,7 @@ class CvBankReclassifyCommand extends Command
                     'title' => $candidate->title,
                     'summary' => $candidate->ai_summary,
                     'skills' => $candidate->skills->pluck('name')->all(),
-                    'raw_text' => is_array($candidate->parsed_profile ?? null) ? ($candidate->parsed_profile['summary'] ?? '') : '',
+                    'raw_text' => $candidate->cv_text ?: (is_array($candidate->parsed_profile ?? null) ? ($candidate->parsed_profile['summary'] ?? '') : ''),
                 ]);
 
                 if ($candidate->specialization !== $result['name']) {

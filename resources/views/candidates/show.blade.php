@@ -3,11 +3,18 @@
 @section('content')
 <div class="grid grid-3">
     <section class="card" style="grid-column:span 2">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        @php($latestDocument = $candidate->documents->sortByDesc('id')->first())
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
             <h2 style="margin-top:0">{{ $candidate->full_name }}</h2>
-            @if(auth()->user()->hasPermission('candidate.write'))
-                <a class="btn btn-light" href="{{ route('candidates.edit', $candidate) }}">Edit</a>
-            @endif
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                @if($latestDocument)
+                    <a class="btn" href="{{ route('candidates.documents.view', [$candidate, $latestDocument]) }}" target="_blank" rel="noopener">Open CV</a>
+                    <a class="btn btn-light" href="{{ route('candidates.documents.download', [$candidate, $latestDocument]) }}">Download CV</a>
+                @endif
+                @if(auth()->user()->hasPermission('candidate.write'))
+                    <a class="btn btn-light" href="{{ route('candidates.edit', $candidate) }}">Edit</a>
+                @endif
+            </div>
         </div>
         <p class="muted">{{ $candidate->title }} · {{ $candidate->current_company ?: 'Company not set' }} · {{ $candidate->city }} · {{ $candidate->country }} · {{ $candidate->years_experience }} years</p>
         <p>{{ $candidate->ai_summary }}</p>
@@ -87,14 +94,19 @@
         @foreach($candidate->sources as $source)
             <p><strong>{{ $source->source_type }}</strong><br><span class="muted">{{ $source->source_url ?: $source->consent_note }}</span></p>
         @endforeach
-        @foreach($candidate->documents as $document)
+        @foreach($candidate->documents->sortByDesc('id') as $document)
             <p>
                 <span class="badge">{{ $document->scan_status }}</span>
                 <span class="badge">{{ $document->malware_scan_status ?? 'NOT_CONFIGURED' }}</span>
-                <a href="{{ route('candidates.documents.download', [$candidate, $document]) }}">{{ $document->file_name }}</a>
+                <strong>{{ $document->file_name }}</strong>
+                <a href="{{ route('candidates.documents.view', [$candidate, $document]) }}" target="_blank" rel="noopener">Open</a> ·
+                <a href="{{ route('candidates.documents.download', [$candidate, $document]) }}">Download</a>
                 <span class="muted">Downloads: {{ $document->download_count ?? 0 }}</span>
             </p>
         @endforeach
+        @if($candidate->documents->isEmpty())
+            <p class="muted">No CV file is stored for this candidate yet. Upload one from Upload CV, or attach it by re-importing.</p>
+        @endif
     </section>
     <section class="card">
         <h3>Timeline</h3>
@@ -106,6 +118,17 @@
         @endif
     </section>
 </div>
+@if($candidate->cv_text)
+<section class="card" style="margin-top:18px">
+    <details @if(!empty($highlightTerms)) open @endif>
+        <summary style="cursor:pointer;font-weight:750;color:var(--ink)">
+            CV text
+            @if(!empty($highlightTerms))<span class="badge" style="margin-left:8px">your search terms are highlighted</span>@endif
+        </summary>
+        <div style="white-space:pre-wrap;margin-top:12px;max-height:520px;overflow:auto;font-size:14px;line-height:1.65">{!! $highlighter->highlight($candidate->cv_text, $highlightTerms) !!}</div>
+    </details>
+</section>
+@endif
 <section class="card" style="margin-top:18px">
     <h3>Talent Pools</h3>
     @forelse($candidate->talentPools as $pool)

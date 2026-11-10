@@ -19,7 +19,12 @@
         </div>
     </div>
     <form method="get" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-        <input type="search" name="q" value="{{ $q }}" placeholder="{{ $isArabic ? 'بحث بالاسم أو المسمى أو المدينة' : 'Search by name, title, or city' }}" style="flex:1;min-width:220px">
+        <input type="search" name="q" value="{{ $q }}" placeholder="{{ $isArabic ? 'بحث بالاسم أو المهارة أو المدينة أو نص السيرة' : 'Search name, skill, city or CV text, e.g. Revit Navisworks Riyadh' }}" style="flex:1;min-width:220px">
+        <select name="mode" style="width:auto">
+            <option value="balanced" @selected(($mode ?? 'balanced') === 'balanced')>{{ $isArabic ? 'أفضل تطابق' : 'Best matches' }}</option>
+            <option value="all" @selected(($mode ?? '') === 'all')>{{ $isArabic ? 'كل الكلمات' : 'Match every term' }}</option>
+            <option value="any" @selected(($mode ?? '') === 'any')>{{ $isArabic ? 'أي كلمة' : 'Match any term' }}</option>
+        </select>
         <button class="btn" type="submit">{{ $isArabic ? 'بحث' : 'Search' }}</button>
     </form>
     @if(session('status'))<div class="badge" style="margin-top:10px;background:#dcfce7;color:#166534">{{ session('status') }}</div>@endif
@@ -27,7 +32,7 @@
 
 <section class="card" style="margin-top:18px">
     @if($candidates->count() === 0)
-        <p class="muted" style="margin:0">{{ $isArabic ? 'لا يوجد مرشحون في هذا التخصص بعد.' : 'No candidates in this specialty yet.' }}</p>
+        <p class="muted" style="margin:0">{{ $q !== '' ? ($isArabic ? 'لا توجد نتائج مطابقة لبحثك في هذا التخصص.' : 'No CVs in this specialty matched your search. Try fewer words or "Match any term".') : ($isArabic ? 'لا يوجد مرشحون في هذا التخصص بعد.' : 'No candidates in this specialty yet.') }}</p>
     @else
     <table>
         <thead>
@@ -42,14 +47,20 @@
         </thead>
         <tbody>
         @foreach($candidates as $candidate)
-            @php($doc = $candidate->documents->first())
+            @php($doc = $candidate->documents->sortByDesc('id')->first())
             <tr>
-                <td><a href="{{ route('candidates.show', $candidate) }}">{{ $candidate->full_name }}</a></td>
-                <td>{{ $candidate->title }}</td>
+                <td>
+                    <a href="{{ route('candidates.show', array_filter(['candidate' => $candidate, 'hl' => $q !== '' ? $q : null])) }}">{{ $candidate->full_name }}</a>
+                    @if($q !== '')@include('partials.search-match', ['candidate' => $candidate])@endif
+                </td>
+                <td>{{ $candidate->title }}
+                    @if($candidate->skills->isNotEmpty())<div style="margin-top:4px">@foreach($candidate->skills->take(5) as $skill)<span class="badge" style="background:#f1f5f9;color:#475569;font-weight:600">{{ $skill->name }}</span> @endforeach</div>@endif
+                </td>
                 <td>{{ $candidate->city ?? '—' }}</td>
                 <td>{{ $candidate->years_experience }}y</td>
                 <td>
                     @if($doc)
+                        <a href="{{ route('candidates.documents.view', [$candidate, $doc]) }}" target="_blank" rel="noopener" class="btn" style="padding:6px 10px">{{ $isArabic ? 'فتح' : 'Open' }}</a>
                         <a href="{{ route('candidates.documents.download', [$candidate, $doc]) }}" class="btn btn-light" style="padding:6px 10px">{{ $isArabic ? 'تنزيل' : 'Download' }}</a>
                     @else
                         <span class="muted">—</span>

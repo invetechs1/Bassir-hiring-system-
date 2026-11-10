@@ -16,7 +16,7 @@ class Candidate extends Model
         'company_id', 'full_name', 'email', 'phone', 'linkedin_url', 'title', 'current_company',
         'specialization', 'industry', 'country', 'city',
         'nationality', 'years_experience', 'expected_salary', 'current_salary', 'availability', 'notice_period',
-        'ai_summary', 'consent_status', 'consent_captured_at', 'consent_captured_by',
+        'ai_summary', 'cv_text', 'consent_status', 'consent_captured_at', 'consent_captured_by',
         'consent_evidence', 'contact_allowed', 'quality_score', 'cv_completeness_score',
         'recruiter_rating', 'quality_factors', 'parsed_profile', 'last_quality_calculated_at',
         'status', 'duplicate_hash',

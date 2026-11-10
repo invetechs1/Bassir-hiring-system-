@@ -39,7 +39,7 @@ class SpecialtyClassifierService
             'keywords' => [
                 'structural engineer', 'structural engineering', 'structural design', 'structural analysis',
                 'مهندس إنشائي', 'هندسة إنشائية',
-                'ETABS', 'SAP2000', 'STAAD Pro', 'SAFE',
+                'ETABS', 'SAP2000', 'STAAD Pro',
             ],
         ],
         [
@@ -80,7 +80,7 @@ class SpecialtyClassifierService
             'keywords' => [
                 'MEP engineer', 'MEP coordinator', 'HVAC engineer', 'plumbing engineer', 'piping engineer',
                 'مهندس كهروميكانيك', 'تكييف',
-                'Hap', 'Revit MEP',
+                'Revit MEP',
             ],
         ],
         [
@@ -101,7 +101,7 @@ class SpecialtyClassifierService
                 'quantity surveyor', 'QS engineer', 'cost estimator', 'cost engineer', 'BOQ',
                 'bill of quantities', 'contracts management',
                 'مسّاح كميات', 'مهندس تكاليف',
-                'CostX', 'Candy',
+                'CostX',
             ],
         ],
         [
@@ -239,7 +239,7 @@ class SpecialtyClassifierService
                 'UI designer', 'UX designer', 'UI/UX', 'product designer', 'interaction designer',
                 'user research', 'wireframing',
                 'مصمم واجهات', 'تجربة المستخدم',
-                'Figma', 'Adobe XD', 'Sketch',
+                'Figma', 'Adobe XD',
             ],
         ],
         [
@@ -250,7 +250,7 @@ class SpecialtyClassifierService
                 'data analyst', 'business intelligence', 'BI analyst', 'data visualization',
                 'reporting analyst',
                 'محلل بيانات',
-                'Power BI', 'Tableau', 'SQL', 'Excel', 'Python pandas',
+                'Power BI', 'Tableau', 'SQL', 'Python pandas',
             ],
         ],
         [
@@ -303,21 +303,23 @@ class SpecialtyClassifierService
     /**
      * Classify a CV/parsed profile into a specialty.
      *
+     * Scoring is deliberately weighted by WHERE a keyword appears: the CV headline/title says what
+     * the person is ("BIM Engineer"), their skills list is the next-best evidence, and a passing
+     * mention deep in the body ("coordinated with the architect") is the weakest. Keywords match
+     * as whole words only — plain substring counting used to credit "SAFE" for every "safety", and
+     * "Excel" for every "excellent", which quietly routed HSE and general CVs into the wrong folders.
+     *
      * @param  array{title?:?string, skills?:array<string>, experience?:array<string>, raw_text?:?string, summary?:?string}  $parsed
      * @return array{slug:string, name:string, name_ar:string, confidence:int}
      */
     public function classify(array $parsed): array
     {
-        $haystack = mb_strtolower($this->normalize(implode(' ', [
-            (string) ($parsed['title'] ?? ''),
-            (string) ($parsed['current_job_title'] ?? ''),
-            (string) ($parsed['summary'] ?? ''),
-            (string) ($parsed['raw_text'] ?? ''),
-            implode(' ', (array) ($parsed['skills'] ?? [])),
-            implode(' ', (array) ($parsed['experience'] ?? [])),
-        ])));
+        $title = $this->normalize(implode(' ', [(string) ($parsed['title'] ?? ''), (string) ($parsed['current_job_title'] ?? '')]));
+        $skills = $this->normalize(implode(' ', (array) ($parsed['skills'] ?? [])));
+        $experience = $this->normalize(implode(' ', (array) ($parsed['experience'] ?? [])));
+        $body = $this->normalize(implode(' ', [(string) ($parsed['summary'] ?? ''), (string) ($parsed['raw_text'] ?? '')]));
 
-        if ($haystack === '') {
+        if ($title === '' && $skills === '' && $experience === '' && $body === '') {
             return $this->unclassified();
         }
 
@@ -326,11 +328,10 @@ class SpecialtyClassifierService
         foreach (self::SPECIALTIES as $spec) {
             $score = 0;
             foreach ($spec['keywords'] as $keyword) {
-                $needle = mb_strtolower($this->normalize($keyword));
-                if ($needle === '') {
-                    continue;
-                }
-                $score += mb_substr_count($haystack, $needle);
+                $score += 4 * min(1, $this->countMatches($title, $keyword));
+                $score += 2 * min(2, $this->countMatches($skills, $keyword));
+                $score += 2 * min(3, $this->countMatches($experience, $keyword));
+                $score += min(5, $this->countMatches($body, $keyword));
             }
             if ($score > $bestScore) {
                 $bestScore = $score;
@@ -348,6 +349,22 @@ class SpecialtyClassifierService
             'name_ar' => $best['name_ar'],
             'confidence' => $bestScore,
         ];
+    }
+
+    /**
+     * Whole-word occurrences of $keyword in $haystack. Acronyms (no lowercase letters, e.g. "PMO",
+     * "NFPA") must be written in capitals so they can't match ordinary words.
+     */
+    private function countMatches(string $haystack, string $keyword): int
+    {
+        $keyword = trim($keyword);
+        if ($haystack === '' || $keyword === '') {
+            return 0;
+        }
+        $caseSensitive = ! preg_match('/\p{Ll}/u', $keyword);
+        $pattern = '/(?<![\p{L}\p{N}])'.preg_quote($keyword, '/').'(?![\p{L}\p{N}])/u'.($caseSensitive ? '' : 'i');
+
+        return (int) preg_match_all($pattern, $haystack);
     }
 
     /**

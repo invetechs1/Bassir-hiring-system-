@@ -7,12 +7,25 @@ use App\Models\Job;
 
 class CandidateScoringService
 {
+    private readonly SkillCatalog $catalog;
+
+    public function __construct(?SkillCatalog $catalog = null)
+    {
+        $this->catalog = $catalog ?? new SkillCatalog();
+    }
+
     public function score(Candidate $candidate, Job $job): array
     {
         $required = $this->jobRelationItems($job, 'requiredSkills')->pluck('name')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->values();
         $candidateSkills = $this->relationItems($candidate, 'skills')->pluck('name')->map(fn ($v) => strtolower(trim((string) $v)))->filter()->values();
-        $matchedSkills = $required->filter(fn ($skill) => $candidateSkills->contains($skill))->values()->all();
-        $missing = $required->filter(fn ($skill) => ! $candidateSkills->contains($skill))->values()->all();
+        // Same skill, different spelling ("Primavera" / "Primavera P6" / "P6") must count as a match, and a
+        // skill written in the CV body counts even if the parser did not list it as a skill chip.
+        $candidateCanonical = $candidateSkills->map(fn ($skill) => $this->canonicalSkill($skill))->all();
+        $cvText = (string) $candidate->cv_text;
+        $hasSkill = fn ($skill) => in_array($this->canonicalSkill($skill), $candidateCanonical, true)
+            || ($cvText !== '' && $this->mentionedIn($cvText, $skill));
+        $matchedSkills = $required->filter($hasSkill)->values()->all();
+        $missing = $required->reject($hasSkill)->values()->all();
 
         $technical = $required->count() ? (int) round((count($matchedSkills) / $required->count()) * 100) : 70;
         $experience = $this->experienceScore((int) $candidate->years_experience, (int) $job->required_experience);
@@ -86,6 +99,24 @@ class CandidateScoringService
                 'ai_disclaimer' => 'AI scoring is a decision-support signal only. HR must validate experience, consent, fit, and legal compliance before any hiring decision.',
             ],
         ];
+    }
+
+    private function canonicalSkill(string $skill): string
+    {
+        $skill = strtolower(trim($skill));
+
+        return strtolower($this->catalog->canonical($skill) ?? $skill);
+    }
+
+    private function mentionedIn(string $text, string $skill): bool
+    {
+        foreach ($this->catalog->synonyms($skill) as $variant) {
+            if ($this->catalog->containsTerm($text, $variant)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function recommendation(int $score): string

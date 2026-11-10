@@ -38,7 +38,10 @@ class SecurityHeaders
             "connect-src 'self'",
             "font-src 'self' data:",
         ]);
-        $response->headers->set('Content-Security-Policy', $csp);
+        // A response may carry its own, tighter policy (e.g. the inline CV viewer) — don't clobber it.
+        if (! $response->headers->has('Content-Security-Policy')) {
+            $response->headers->set('Content-Security-Policy', $csp);
+        }
 
         if ($request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
